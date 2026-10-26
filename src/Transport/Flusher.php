@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MyBeast\Errors\Laravel\Transport;
+
+use Illuminate\Support\Facades\Log;
+use MyBeast\Errors\Laravel\Capture\Spool;
+use MyBeast\Errors\Laravel\Capture\SpoolSink;
+
+/**
+ * Sends the spool to the service: right after a response went out (the request's terminating callbacks), after each
+ * queued job, and every minute (mybeast:errors-flush) for whatever is left. A request's flush is short - it must never
+ * hold a PHP worker for long; the minutely run takes its time.
+ */
+final readonly class Flusher
+{
+    public function __construct(
+        private Spool $spool,
+        private SpoolSink $sink,
+        private ?ServiceClient $client,
+    ) {}
+
+    /** After a response or a job: only when this process captured something. */
+    public function flushIfPending(): void
+    {
+        if ($this->sink->pending()) {
+            $this->flush(timeout: 3, maxBatches: 2);
+        }
+    }
+
+    /** @return int how many events went out */
+    public function flush(int $timeout = 15, int $maxBatches = 20): int
+    {
+        if ($this->client === null) {
+            return 0;
+        }
+
+        $client = $this->client;
+        $sent = $this->spool->drain(function (array $events) use ($client, $timeout): bool {
+            try {
+                $result = $client->sendErrors($events, $timeout);
+            } catch (TransportFailed $e) {
+                Log::warning('MyBeast errors: errors wait in the spool', ['reason' => $e->getMessage()]);
+
+                return false;
+            }
+
+            foreach ($result['refused'] ?? [] as $refused) {
+                Log::warning('MyBeast errors: the service refused an error event', $refused);
+            }
+
+            return true;
+        }, maxBatches: $maxBatches);
+
+        if ($this->spool->count() === 0) {
+            $this->sink->sent();
+        }
+
+        return $sent;
+    }
+}

@@ -1,0 +1,111 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "mybeast-errors:schemas/v1/webhook.schema.json",
+    "title": "Webhook, v1 (service → host)",
+    "description": "POST <project webhook URL>, application/json. Headers: X-MyBeast-Delivery (= id), X-MyBeast-Event, X-MyBeast-Signature: t=<unix s>,v1=<hex HMAC-SHA256 of \"<t>.<body>\" under the webhook secret>[,v1=…]. Answer 2xx; anything else is tried again later with the same id (1 min, 5 min, 30 min, 2 h, 6 h).",
+    "type": "object",
+    "required": [
+        "id",
+        "event",
+        "created_at",
+        "data"
+    ],
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "event": {
+            "enum": [
+                "issue.notify"
+            ]
+        },
+        "created_at": {
+            "type": "string"
+        },
+        "data": {
+            "type": "object",
+            "description": "Tell these people about this issue, in the host's own words and language.",
+            "required": [
+                "issue",
+                "kind",
+                "people"
+            ],
+            "properties": {
+                "issue": {
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "title",
+                        "environment",
+                        "url"
+                    ],
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "title": {
+                            "type": "string"
+                        },
+                        "environment": {
+                            "type": "string"
+                        },
+                        "url": {
+                            "type": "string",
+                            "description": "The issue in the service (for the host's own log, not for customers)."
+                        }
+                    }
+                },
+                "kind": {
+                    "enum": [
+                        "working-on-it",
+                        "fixed"
+                    ]
+                },
+                "release": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "The release live now in that environment."
+                },
+                "people": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "subject",
+                            "last_at"
+                        ],
+                        "properties": {
+                            "subject": {
+                                "type": "string"
+                            },
+                            "account": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "last_at": {
+                                "type": "string"
+                            },
+                            "method": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "What they were doing the last time: the request's method and path."
+                            },
+                            "path": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

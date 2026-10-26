@@ -1,0 +1,68 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "mybeast-errors:schemas/v1/error-event.schema.json",
+    "title": "Error event, v1 (server SDKs)",
+    "description": "One captured error, as a server SDK sends it: POST /v1/errors {\"events\": [<this>, …]} (at most 100, gzip with Content-Encoding: gzip), Authorization: Bearer <server secret>. Scrub personal data before sending; the service scrubs again. The id is minted by the SDK, so the reference a person quotes (its last 8 hex) exists before the service has the event; sending it again is harmless.",
+    "type": "object",
+    "required": ["event_id", "occurred_at", "exception_class", "message", "exceptions", "environment"],
+    "properties": {
+        "event_id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F-]{36}$" },
+        "occurred_at": { "type": "string", "description": "ISO 8601 with milliseconds and offset. A future one is placed at now; one older than the project keeps events is refused." },
+        "platform": { "enum": ["php", "javascript", "other"], "default": "other" },
+        "level": { "enum": ["warning", "error", "fatal"], "default": "error" },
+        "exception_class": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "exceptions": {
+            "type": "array",
+            "maxItems": 5,
+            "description": "The exception and its previous ones, outermost first.",
+            "items": {
+                "type": "object",
+                "required": ["class", "frames"],
+                "properties": {
+                    "class": { "type": "string", "minLength": 1, "maxLength": 255 },
+                    "message": { "type": "string" },
+                    "frames": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "description": "Newest first. in_app marks the host's own code: grouping keys on the top in-app frame.",
+                        "items": {
+                            "type": "object",
+                            "required": ["file", "line", "in_app"],
+                            "properties": {
+                                "file": { "type": "string", "maxLength": 500 },
+                                "line": { "type": "integer" },
+                                "column": { "type": "integer" },
+                                "function": { "type": ["string", "null"], "maxLength": 255 },
+                                "in_app": { "type": "boolean" },
+                                "context": {
+                                    "type": ["object", "null"],
+                                    "properties": {
+                                        "start": { "type": "integer" },
+                                        "pre": { "type": "array", "items": { "type": "string" } },
+                                        "line": { "type": "string" },
+                                        "post": { "type": "array", "items": { "type": "string" } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "culprit": { "type": ["string", "null"], "maxLength": 500 },
+        "transaction": { "type": ["string", "null"], "maxLength": 255, "description": "The route, job or command that was running." },
+        "request_method": { "type": ["string", "null"], "maxLength": 10 },
+        "request_url": { "type": ["string", "null"], "maxLength": 2048, "description": "Path and query keys only, never values." },
+        "subject": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._:-]{1,64}$", "description": "The person's id in the host. Never a name or an e-mail." },
+        "account": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._:-]{1,64}$" },
+        "internal": { "type": "boolean", "description": "Staff, demo or test account: never counted or alerted about." },
+        "environment": { "type": "string", "pattern": "^[a-z0-9_-]{1,32}$" },
+        "release": { "type": ["string", "null"], "maxLength": 64 },
+        "fingerprint": { "type": ["array", "null"], "maxItems": 10, "items": { "type": "string", "maxLength": 200 }, "description": "The host's own grouping, instead of the service's." },
+        "context": {
+            "type": "object",
+            "description": "Free-form, at most 64 KB as JSON. Known keys: runtime, breadcrumbs [{at, category, message, data?}], request {route, uri, action, params, fields, files, kind}, job, recording {id, at_ms?}, tags {string: string}."
+        }
+    }
+}

@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "mybeast-errors:schemas/v1/browser-error.schema.json",
+    "title": "Browser error, v1",
+    "description": "One error from a page: POST /v1/browser-errors?key=<public key>&t=<client token>, body text/plain JSON (a CORS-simple request, so it survives fetch keepalive). From an origin the project lists. Who it was comes from the token only; without a valid one it is a guest's.",
+    "type": "object",
+    "required": ["name", "message", "kind", "url"],
+    "properties": {
+        "event_id": { "type": ["string", "null"], "pattern": "^[0-9a-fA-F-]{36}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "kind": { "enum": ["error", "unhandledrejection", "react", "manual"] },
+        "url": { "type": "string", "maxLength": 2000, "description": "The page; kept as path and query keys." },
+        "stack": { "type": ["string", "null"], "maxLength": 20000 },
+        "component": { "type": ["string", "null"], "maxLength": 200, "description": "The page or view on screen (an Inertia component, a route name)." },
+        "component_stack": { "type": ["string", "null"], "maxLength": 5000 },
+        "breadcrumbs": {
+            "type": ["array", "null"],
+            "maxItems": 30,
+            "items": {
+                "type": "object",
+                "properties": { "at": { "type": "string" }, "category": { "type": "string" }, "message": { "type": "string" } }
+            }
+        },
+        "release": { "type": ["string", "null"], "maxLength": 64, "description": "Picks the source maps." },
+        "env": { "type": ["string", "null"], "pattern": "^[a-z0-9_-]{1,32}$", "description": "Read only without a token." },
+        "recording_id": { "type": ["string", "null"], "pattern": "^[0-9a-fA-F-]{36}$" },
+        "recording_at_ms": { "type": ["integer", "null"], "minimum": 0 }
+    }
+}
