@@ -1,6 +1,6 @@
 {
     "name": "mybeast/errors-laravel",
-    "description": "Laravel SDK for errors.my-beast.com: your app's errors, scrubbed, grouped, alerted.",
+    "description": "Laravel SDK for MyBeast Errors (services.my-beast.com/errors): your app's errors, scrubbed, grouped, alerted.",
     "type": "library",
     "license": "proprietary",
     "require": {

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /*
- * MyBeast errors: this app's errors, sent to errors.my-beast.com. Every key and URL comes from the project's page
- * there (Overview → Connect a host shows the .env block; Settings shows the secret lines to admins).
+ * MyBeast errors: this app's errors, sent to services.my-beast.com/errors. Every key and URL comes from the project's
+ * page there (Overview → Connect a host shows the .env block; Settings shows the secret lines to admins).
  *
  * Missing or malformed values switch the SDK off - it never throws at boot and never breaks a page.
  */
@@ -12,7 +12,7 @@ return [
     // false switches everything off (tests, a local checkout without the service).
     'enabled' => (bool) env('MYBEAST_ERRORS_ENABLED', true),
 
-    // The service, e.g. https://errors.my-beast.com (no trailing slash needed).
+    // The service, e.g. https://services.my-beast.com/errors (no trailing slash needed).
     'url' => env('MYBEAST_ERRORS_URL'),
 
     // pk_…: names the project in the browser. Not a secret.
@@ -68,7 +68,7 @@ return [
 
     // mybeast:errors-release uploads these: the browser bundle's private source maps (Vite `sourcemap: 'hidden'`, moved out
     // of public/ after the build) and the fonts a page uses (globs; a leftover of the joint Recorder - replay now
-    // belongs to sessions.my-beast.com, so this moves there).
+    // belongs to Sessions, services.my-beast.com/sessions, so this moves there).
     'sourcemaps_path' => env('MYBEAST_ERRORS_SOURCEMAPS_PATH', storage_path('app/private/sourcemaps')),
     'fonts' => [],
 ];

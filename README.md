@@ -1,6 +1,6 @@
 # mybeast/errors-laravel
 
-The Laravel SDK of **errors.my-beast.com**. It works on PHP ≥ 8.2 with Laravel 11, 12 and 13.
+The Laravel SDK of **Errors** (services.my-beast.com/errors). It works on PHP ≥ 8.2 with Laravel 11, 12 and 13.
 
 It does six things:
 - captures every reported exception, scrubbed, and sends it to the service;
@@ -20,7 +20,7 @@ php artisan vendor:publish --tag=mybeast-errors-config
 ```
 
 ```dotenv
-MYBEAST_ERRORS_URL=https://errors.my-beast.com
+MYBEAST_ERRORS_URL=https://services.my-beast.com/errors
 MYBEAST_ERRORS_PUBLIC_KEY=pk_…
 MYBEAST_ERRORS_SECRET=sk_….…
 MYBEAST_ERRORS_SIGNING_KEY=sig_….…
@@ -133,7 +133,7 @@ Event::listen(\MyBeast\Errors\Laravel\Events\CustomersShouldBeNotified::class, f
 });
 ```
 
-Set the project's webhook URL in the service: Settings → General.
+Set the project's webhook URL in Errors: Settings → Events, links and webhook.
 
 ## Erasing a person or an account
 
@@ -157,7 +157,8 @@ again then - an erasure that finds nothing answers 0.
 (`/posts/n-plus-one`), the same page eager-loaded (`/posts`), a slow page, an outgoing call, and two queued jobs, one with
 an N+1 and one that fails.
 
-1. Make a project in the local errors service (http://localhost:8004) and a server secret in its Settings → Keys.
+1. Open the project in Errors locally (http://localhost:8024/errors; projects come from id) and make a server secret
+   in its Settings → Keys.
 2. Copy `workbench/.env.example` to `workbench/.env` and paste the secret (git leaves `.env` out).
 3. Run the demo:
 
@@ -182,7 +183,7 @@ $fake->assertCaptured(fn (array $event) => $event['message'] === 'boom');
 
 ## Contract
 
-`schemas/` is a copy of the service's `schemas/`. `SchemaCopyTest` fails when the two differ.
+`schemas/` is a copy of the Errors module's, `services/schemas/errors`. `SchemaCopyTest` fails when the two differ.
 
 ```bash
 composer install && vendor/bin/phpunit

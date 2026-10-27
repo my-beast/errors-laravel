@@ -39,8 +39,8 @@ Route::get('report', function () {
     return 'The monthly report.';
 });
 
-// The errors service's health check by its address: the SDK leaves its own calls to the service (by its URL's host) out.
-Route::get('status', fn () => 'The errors service answered '.Http::timeout(3)->get('http://127.0.0.1:8004/up')->status().'.');
+// Errors' health check (services/' /up): the SDK leaves its own calls to the service (by its URL's host) out.
+Route::get('status', fn () => 'Errors answered '.Http::timeout(3)->get('http://127.0.0.1:8024/up')->status().'.');
 
 // The sync queue runs a job right here: it is measured on its own, and counts in the request too.
 Route::get('jobs/rebuild', function () {

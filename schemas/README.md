@@ -1,8 +1,9 @@
 # Payload contract
 
-Every payload a host and this service exchange has a JSON Schema here, by version (`v1/`). The service is the
-source; each SDK keeps a copy under its own `schemas/` and a test fails when the copy differs from this one (when
-the service sits beside it). Change a schema only together with the service and both SDKs.
+Every payload a host and the Errors module of services exchange has a JSON Schema here, by version (`v1/`). The
+module (`services/schemas/errors`) is the source; each SDK keeps a copy under its own `schemas/` and a test fails when
+the copy differs from this one (when services/ is there). Change a schema only together with the module and both
+SDKs. Paths are below `MYBEAST_ERRORS_URL` (`…/errors`).
 
 | File | What |
 |---|---|
