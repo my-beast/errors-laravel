@@ -6,6 +6,7 @@ namespace MyBeast\Errors\Laravel\Tests;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use MyBeast\Errors\Laravel\Capture\Spool;
 use MyBeast\Errors\Laravel\ErrorsServiceProvider;
 use MyBeast\Errors\Laravel\Facades\Errors;
@@ -33,7 +34,7 @@ final class FlushTest extends TestCase
 
     protected function tearDown(): void
     {
-        array_map('unlink', [...(glob($this->spool.'/*.json') ?: []), ...(is_file($this->spool.'/.drain.lock') ? [$this->spool.'/.drain.lock'] : [])]);
+        array_map('unlink', [...(glob($this->spool.'/*.json') ?: []), ...array_filter([$this->spool.'/.drain.lock', $this->spool.'/.monthly-limit'], 'is_file')]);
         @rmdir($this->spool);
         parent::tearDown();
     }
@@ -66,6 +67,34 @@ final class FlushTest extends TestCase
 
         $this->assertSame(0, Errors::flush());
         $this->assertSame(1, app(Spool::class)->count());
+    }
+
+    public function test_past_the_months_limit_events_are_dropped_and_said_once_a_month(): void
+    {
+        Http::fakeSequence('rec.example.test/v1/errors')
+            ->push(['accepted' => 0, 'duplicates' => 0, 'refused' => [['event_id' => 'a', 'reason' => 'monthly-limit']]], 202)
+            ->push(['accepted' => 0, 'duplicates' => 0, 'refused' => [['event_id' => 'b', 'reason' => 'monthly-limit'], ['event_id' => 'c', 'reason' => 'too old']]], 202)
+            ->push(['accepted' => 1, 'duplicates' => 0, 'refused' => []], 202);
+        Log::spy();
+
+        report(new RuntimeException('one'));
+        Errors::flush();
+        report(new RuntimeException('two'));
+        report(new RuntimeException('three'));
+        Errors::flush();
+
+        // Dropped, not kept: the service would refuse them again until the 1st. Said once, not once each; a refusal
+        // for a reason of its own still has its warning.
+        $this->assertSame(0, app(Spool::class)->count());
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, "used up this month's error events"))->once();
+        Log::shouldHaveReceived('warning')->with('MyBeast errors: the service refused an error event', ['event_id' => 'c', 'reason' => 'too old'])->once();
+        Log::shouldNotHaveReceived('warning', ['MyBeast errors: the service refused an error event', ['event_id' => 'a', 'reason' => 'monthly-limit']]);
+
+        // Taken again (the 1st, or a bigger package): said once, and the next month's limit would be said again.
+        report(new RuntimeException('four'));
+        Errors::flush();
+        Log::shouldHaveReceived('info')->with('MyBeast errors: the service takes error events again.')->once();
+        $this->assertNull(app(Spool::class)->note('monthly-limit'));
     }
 
     public function test_the_request_s_end_sends_what_it_captured(): void

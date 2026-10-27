@@ -40,6 +40,23 @@ final class Spool
         return @rename($tmp, $name);
     }
 
+    /** A line kept beside the events, never sent as one (`.<name>`): what the flusher has said already. */
+    public function note(string $name): ?string
+    {
+        $value = is_file($this->directory.'/.'.$name) ? @file_get_contents($this->directory.'/.'.$name) : false;
+
+        return $value === false ? null : trim($value);
+    }
+
+    public function setNote(string $name, ?string $value): void
+    {
+        if ($value === null) {
+            @unlink($this->directory.'/.'.$name);
+        } elseif (is_dir($this->directory) || @mkdir($this->directory, 0750, true)) {
+            @file_put_contents($this->directory.'/.'.$name, $value);
+        }
+    }
+
     public function count(): int
     {
         return is_dir($this->directory) ? count(glob($this->directory.'/*.json') ?: []) : 0;

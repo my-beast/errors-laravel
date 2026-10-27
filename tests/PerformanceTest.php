@@ -9,6 +9,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use MyBeast\Errors\Laravel\ErrorsServiceProvider;
 use MyBeast\Errors\Laravel\Facades\Errors;
@@ -87,7 +88,7 @@ final class PerformanceTest extends TestCase
     protected function tearDown(): void
     {
         foreach ([$this->spool, $this->errorSpool] as $dir) {
-            array_map('unlink', [...(glob($dir.'/*.json') ?: []), ...(is_file($dir.'/.drain.lock') ? [$dir.'/.drain.lock'] : [])]);
+            array_map('unlink', [...(glob($dir.'/*.json') ?: []), ...array_filter([$dir.'/.drain.lock', $dir.'/.monthly-limit'], 'is_file')]);
             @rmdir($dir);
         }
 
@@ -203,6 +204,19 @@ final class PerformanceTest extends TestCase
         });
 
         $this->artisan('mybeast:errors-flush')->expectsOutputToContain('Sent 0 performance sample(s).')->assertSuccessful();
+    }
+
+    public function test_past_the_months_limit_samples_are_dropped_and_said_once(): void
+    {
+        $this->get('/posts/1');
+        $this->get('/posts/2');
+        Http::fake(['rec.example.test/*' => Http::response(['accepted' => 0, 'duplicates' => 0, 'refused' => [['id' => 'x', 'reason' => 'monthly-limit'], ['id' => 'y', 'reason' => 'monthly-limit']]], 202)]);
+        Log::spy();
+
+        $this->assertSame(2, Errors::flushTransactions());
+        $this->assertSame([], $this->spooled());
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []): bool => str_contains($message, "used up this month's performance samples") && $context === ['dropped' => 2])->once();
+        Log::shouldNotHaveReceived('warning', ['MyBeast errors: the service refused a performance sample', ['id' => 'x', 'reason' => 'monthly-limit']]);
     }
 
     public function test_a_query_shape_keeps_names_and_drops_every_value(): void

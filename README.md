@@ -49,6 +49,8 @@ service scrubs again.
 - The spool is sent right after the response, after each queued job, and every minute by `mybeast:errors-flush`,
   which the SDK puts on the scheduler.
 - While the service is away, events wait in the spool (at most 5 000 files).
+- Past the project's monthly limit (its package's), the service refuses the rest of the month's events and samples
+  as `monthly-limit`. They are dropped, and the log says so once a month, and once when the service takes them again.
 
 ```php
 use MyBeast\Errors\Laravel\Capture\Identity;

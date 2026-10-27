@@ -15,6 +15,11 @@ SDKs. Paths are below `MYBEAST_ERRORS_URL` (`…/errors`).
 | `v1/transaction.schema.json` | One measured request or job, when the host turned performance on (`POST /v1/transactions`, batches of up to 100, gzip) |
 | `v1/webhook.schema.json` | What the service asks a host to do (`issue.notify`), and how it is signed |
 
+A batch (`POST /v1/errors`, `/v1/transactions`) is answered 202 `{"accepted", "duplicates", "refused": [{"event_id"
+| "id", "reason"}]}`: a refused one never fits and is not sent again. Past the project's monthly limit (its package's
+`events_per_month`, `transactions_per_month`) the rest of the month's are refused as `monthly-limit` until the 1st (UTC):
+the SDK drops them and says so once a month. A page's error past it is answered 202 and dropped.
+
 Recordings are sessions.my-beast.com's (its own `schemas/`).
 
 ## The host's server API

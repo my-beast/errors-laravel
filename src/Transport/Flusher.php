@@ -37,7 +37,8 @@ final readonly class Flusher
         }
 
         $client = $this->client;
-        $sent = $this->spool->drain(function (array $events) use ($client, $timeout): bool {
+        $limit = new MonthlyLimit($this->spool, 'error events');
+        $sent = $this->spool->drain(function (array $events) use ($client, $timeout, $limit): bool {
             try {
                 $result = $client->sendErrors($events, $timeout);
             } catch (TransportFailed $e) {
@@ -46,8 +47,8 @@ final readonly class Flusher
                 return false;
             }
 
-            foreach ($result['refused'] ?? [] as $refused) {
-                Log::warning('MyBeast errors: the service refused an error event', $refused);
+            foreach ($limit->sort($result['refused'] ?? [], ($result['accepted'] ?? 0) + ($result['duplicates'] ?? 0)) as $refused) {
+                Log::warning('MyBeast errors: the service refused an error event', is_array($refused) ? $refused : []);
             }
 
             return true;

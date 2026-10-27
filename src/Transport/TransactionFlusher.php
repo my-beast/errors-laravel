@@ -28,8 +28,9 @@ final readonly class TransactionFlusher
         }
 
         $client = $this->client;
+        $limit = new MonthlyLimit($this->spool, 'performance samples');
 
-        return $this->spool->drain(function (array $transactions) use ($client, $timeout): bool {
+        return $this->spool->drain(function (array $transactions) use ($client, $timeout, $limit): bool {
             try {
                 $result = $client->sendTransactions($transactions, $timeout);
             } catch (TransportFailed $e) {
@@ -38,8 +39,8 @@ final readonly class TransactionFlusher
                 return false;
             }
 
-            foreach ($result['refused'] ?? [] as $refused) {
-                Log::warning('MyBeast errors: the service refused a performance sample', $refused);
+            foreach ($limit->sort($result['refused'] ?? [], ($result['accepted'] ?? 0) + ($result['duplicates'] ?? 0)) as $refused) {
+                Log::warning('MyBeast errors: the service refused a performance sample', is_array($refused) ? $refused : []);
             }
 
             return true;
