@@ -2,8 +2,9 @@
 
 The Laravel SDK of **errors.my-beast.com**. It works on PHP ≥ 8.2 with Laravel 11, 12 and 13.
 
-It does five things:
+It does six things:
 - captures every reported exception, scrubbed, and sends it to the service;
+- measures requests and queued jobs for the Performance tab, once the host turns it on;
 - hands browser pages their config and a signed client token;
 - tells the service about releases (source maps, "it's live");
 - receives the service's webhooks;
@@ -65,6 +66,35 @@ Errors::scrubUsing(fn (string $text): string => preg_replace('/\bCUST-\d+\b/', '
 $reference = Errors::lastReference();
 ```
 
+## Performance: off until you turn it on
+
+```dotenv
+MYBEAST_ERRORS_PERFORMANCE=true
+# MYBEAST_ERRORS_PERFORMANCE_SAMPLE_RATE=0.1   the share of ordinary requests and jobs sent
+# MYBEAST_ERRORS_PERFORMANCE_SLOW_MS=1000      every one at least this slow is sent too
+```
+
+It works only while errors are sent (the URL and the server secret are set). With it on, the SDK measures every request
+and queued job (`schemas/v1/transaction.schema.json`) and keeps a share of the ordinary ones plus every slow or failed
+one:
+- a request is named by its route (`GET /posts/{post}`), never its URL, and a job by its class;
+- its duration, its status, and how many database queries it ran and how long they took;
+- its ten heaviest queries by **shape**: the SQL with every value taken out, and an IN list cut to `(?)`;
+- an **N+1**: one query shape run 5 times or more, with the line of your code that ran it
+  (`app/Http/Controllers/PostController.php:24`, or the Blade view);
+- its outgoing HTTP calls, by host (the SDK's own calls to the service are left out).
+
+**It never slows a request:**
+- The measuring is a few counters per query.
+- A kept sample is written to its own spool after the response has gone out.
+- `mybeast:errors-flush` sends the spool every minute.
+
+On a page with 26 queries, measuring added about 0.05 ms to the response at the default 10 % (0.15 ms with every
+request kept).
+
+A job run on the sync queue inside a request is measured on its own and also counts in the request. With performance off,
+nothing is hooked at all.
+
 ## The browser's config
 
 ```php
@@ -120,6 +150,27 @@ Each throws `MyBeast\Errors\Laravel\ErasureFailed` when the service does not con
 with retries, so an erasure is never lost to a network blip. Errors still waiting in the spool when it runs (the last
 minute's, the closing request's own) reach the service after it and are kept: delay the job a few minutes, or erase
 again then - an erasure that finds nothing answers 0.
+
+## The demo app
+
+`workbench/` is a small Laravel app with this SDK and performance on (Orchestra Workbench). It has a page with an N+1
+(`/posts/n-plus-one`), the same page eager-loaded (`/posts`), a slow page, an outgoing call, and two queued jobs, one with
+an N+1 and one that fails.
+
+1. Make a project in the local errors service (http://localhost:8004) and a server secret in its Settings → Keys.
+2. Copy `workbench/.env.example` to `workbench/.env` and paste the secret (git leaves `.env` out).
+3. Run the demo:
+
+```bash
+composer demo                                   # builds its database, asks for every page, sends what was measured
+vendor/bin/testbench serve --port=8022          # or click through it yourself
+vendor/bin/testbench mybeast:errors-flush       # then send what it measured
+```
+
+Then open the project's **Performance** tab.
+
+`vendor/bin/testbench` leaves a copy of `workbench/.env` in testbench's skeleton (`vendor/orchestra/testbench-core/laravel/`).
+The test suite ignores it: `phpunit.xml` forces its own values.
 
 ## Tests
 

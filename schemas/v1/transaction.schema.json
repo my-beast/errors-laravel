@@ -1,0 +1,73 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "mybeast-errors:schemas/v1/transaction.schema.json",
+    "title": "Transaction, v1 (server SDKs, performance)",
+    "description": "One measured request or queued job, as a server SDK sends it when performance is on: POST /v1/transactions {\"transactions\": [<this>, …]} (at most 100, gzip with Content-Encoding: gzip), Authorization: Bearer <server secret>. A sample: the SDK keeps a share of them (sample_rate) and every slow or failed one. Never values: SQL keeps its shape only, a request is named by its route, not its URL. Sending one again is harmless (the id is the key).",
+    "type": "object",
+    "required": ["id", "kind", "name", "occurred_at", "duration_ms", "environment", "kept", "sample_rate"],
+    "properties": {
+        "id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F-]{36}$" },
+        "kind": { "enum": ["request", "job"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255, "description": "A request: its method and route template (\"GET /posts/{post}\"). A job: its class." },
+        "occurred_at": { "type": "string", "description": "When it started: ISO 8601 with milliseconds and offset. A future one is placed at now; one older than the service keeps figures is refused." },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "status": { "type": ["integer", "null"], "minimum": 100, "maximum": 599, "description": "A request's HTTP status." },
+        "failed": { "type": "boolean", "default": false, "description": "A job that threw, or a request answered 5xx." },
+        "environment": { "type": "string", "pattern": "^[a-z0-9_-]{1,32}$" },
+        "release": { "type": ["string", "null"], "maxLength": 64 },
+        "kept": { "enum": ["sample", "slow", "failed"], "description": "Why the SDK sent it: drawn by sample_rate, over the slow threshold, or failed. Only a drawn one stands for others (1 / sample_rate of them)." },
+        "sample_rate": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of ordinary ones the SDK sends: 0.1 = one in ten." },
+        "db": {
+            "type": "object",
+            "description": "Every database query it ran.",
+            "properties": {
+                "count": { "type": "integer", "minimum": 0 },
+                "ms": { "type": "number", "minimum": 0 }
+            }
+        },
+        "queries": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Its heaviest queries by time, grouped by shape: the SQL with every value replaced by ? and an IN list cut to (?).",
+            "items": {
+                "type": "object",
+                "required": ["sql", "count", "ms"],
+                "properties": {
+                    "sql": { "type": "string", "minLength": 1, "maxLength": 2000 },
+                    "count": { "type": "integer", "minimum": 1 },
+                    "ms": { "type": "number", "minimum": 0, "description": "All its runs together." },
+                    "max_ms": { "type": "number", "minimum": 0, "description": "Its slowest run." }
+                }
+            }
+        },
+        "n_plus_one": {
+            "type": "array",
+            "maxItems": 5,
+            "description": "A query of one shape run 5 times or more: one query per row, where one query for all rows would do.",
+            "items": {
+                "type": "object",
+                "required": ["sql", "count", "ms"],
+                "properties": {
+                    "sql": { "type": "string", "minLength": 1, "maxLength": 2000 },
+                    "count": { "type": "integer", "minimum": 2 },
+                    "ms": { "type": "number", "minimum": 0 },
+                    "origin": { "type": ["string", "null"], "maxLength": 300, "description": "The host's own line that ran it (\"app/Http/Controllers/PostController.php:24\")." }
+                }
+            }
+        },
+        "http": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Outgoing HTTP calls, by host.",
+            "items": {
+                "type": "object",
+                "required": ["host", "count", "ms"],
+                "properties": {
+                    "host": { "type": "string", "minLength": 1, "maxLength": 255 },
+                    "count": { "type": "integer", "minimum": 1 },
+                    "ms": { "type": "number", "minimum": 0 }
+                }
+            }
+        }
+    }
+}

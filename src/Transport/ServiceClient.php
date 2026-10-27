@@ -34,6 +34,22 @@ final readonly class ServiceClient
             ->post($this->url.'/v1/errors'), $timeout);
     }
 
+    /**
+     * One batch of performance samples to POST /v1/transactions, gzip; answered like errors, per transaction.
+     *
+     * @param  list<array<string, mixed>>  $transactions
+     * @return array{accepted: int, duplicates: int, refused: list<array{id: ?string, reason: string}>}
+     */
+    public function sendTransactions(array $transactions, int $timeout): array
+    {
+        $body = (string) gzencode((string) json_encode(['transactions' => $transactions], JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+
+        return $this->call(fn (PendingRequest $http) => $http
+            ->withHeaders(['Content-Encoding' => 'gzip'])
+            ->withBody($body, 'application/json')
+            ->post($this->url.'/v1/transactions'), $timeout);
+    }
+
     /** @return array<string, mixed> */
     public function deployed(string $version, string $environment): array
     {

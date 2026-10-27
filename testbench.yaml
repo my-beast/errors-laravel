@@ -1,0 +1,32 @@
+# The demo app (Orchestra Workbench): a small Laravel app with this SDK and performance on - a page with an N+1, a
+# slow one, an outgoing call and queued jobs. `vendor/bin/testbench workbench:build` makes its database,
+# `vendor/bin/testbench serve --port=8022` serves it, `vendor/bin/testbench demo:traffic` sends it requests. Its .env:
+# workbench/.env (from workbench/.env.example).
+laravel: '@testbench'
+
+providers:
+  - MyBeast\Errors\Laravel\ErrorsServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+
+migrations:
+  - workbench/database/migrations
+
+seeders:
+  - Workbench\Database\Seeders\DatabaseSeeder
+
+workbench:
+  start: '/'
+  install: false
+  health: false
+  discovers:
+    web: true
+    api: false
+    commands: true
+    components: false
+    factories: false
+    views: false
+  build:
+    - create-sqlite-db
+    - db-wipe
+    # Seeds through `seeders:` above.
+    - migrate-fresh

@@ -11,6 +11,7 @@ the service sits beside it). Change a schema only together with the service and 
 | `v1/fixtures/client-token.json` | One token, fixed: the PHP SDK must mint it byte for byte, the service accept it, the JS SDK read it |
 | `v1/error-event.schema.json` | One error from a server SDK (`POST /v1/errors`, batches of up to 100, gzip) |
 | `v1/browser-error.schema.json` | One error from a page (`POST /v1/browser-errors?key=…&t=…`, text/plain) |
+| `v1/transaction.schema.json` | One measured request or job, when the host turned performance on (`POST /v1/transactions`, batches of up to 100, gzip) |
 | `v1/webhook.schema.json` | What the service asks a host to do (`issue.notify`), and how it is signed |
 
 Recordings are sessions.my-beast.com's (its own `schemas/`).

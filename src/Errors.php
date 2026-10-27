@@ -19,6 +19,7 @@ use MyBeast\Errors\Laravel\Tokens\SigningKey;
 use MyBeast\Errors\Laravel\Tokens\TokenSigner;
 use MyBeast\Errors\Laravel\Transport\Flusher;
 use MyBeast\Errors\Laravel\Transport\ServiceClient;
+use MyBeast\Errors\Laravel\Transport\TransactionFlusher;
 use MyBeast\Errors\Laravel\Transport\TransportFailed;
 use Throwable;
 
@@ -53,6 +54,15 @@ final class Errors
     public function capturing(): bool
     {
         return $this->faked || ($this->on() && preg_match(self::SERVER_SECRET, (string) ($this->config['secret'] ?? '')) === 1);
+    }
+
+    /**
+     * Requests and jobs are measured and sent (the Performance tab): errors are sent, and the host turned performance
+     * on (MYBEAST_ERRORS_PERFORMANCE=true). Off by default.
+     */
+    public function measuring(): bool
+    {
+        return ! $this->faked && $this->capturing() && (($this->config['performance']['enabled'] ?? false) === true);
     }
 
     /** Browser pages get a config and a token: on, with the URL, the public key and the signing key. */
@@ -99,6 +109,12 @@ final class Errors
     public function flush(): int
     {
         return $this->capturing() && ! $this->faked ? $this->app->make(Flusher::class)->flush() : 0;
+    }
+
+    /** Sends the performance samples that wait in their spool now. @return int how many went out */
+    public function flushTransactions(): int
+    {
+        return $this->measuring() ? $this->app->make(TransactionFlusher::class)->flush() : 0;
     }
 
     /** Tests: capture into memory instead of the spool; assert on what was captured. */

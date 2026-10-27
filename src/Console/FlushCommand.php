@@ -7,7 +7,10 @@ namespace MyBeast\Errors\Laravel\Console;
 use Illuminate\Console\Command;
 use MyBeast\Errors\Laravel\Errors;
 
-/** Every minute (registered on the scheduler): whatever a request or job could not send in its short try. */
+/**
+ * Every minute (registered on the scheduler): whatever a request or job could not send in its short try, and the
+ * performance samples (only ever sent from here, never from a request or a job).
+ */
 final class FlushCommand extends Command
 {
     protected $signature = 'mybeast:errors-flush';
@@ -23,6 +26,10 @@ final class FlushCommand extends Command
         }
 
         $this->info('Sent '.$errors->flush().' error event(s).');
+
+        if ($errors->measuring()) {
+            $this->info('Sent '.$errors->flushTransactions().' performance sample(s).');
+        }
 
         return self::SUCCESS;
     }

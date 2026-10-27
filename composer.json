@@ -20,7 +20,11 @@
         "psr-4": { "MyBeast\\Errors\\Laravel\\": "src/" }
     },
     "autoload-dev": {
-        "psr-4": { "MyBeast\\Errors\\Laravel\\Tests\\": "tests/" }
+        "psr-4": {
+            "MyBeast\\Errors\\Laravel\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/",
+            "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
+        }
     },
     "extra": {
         "laravel": {
@@ -29,7 +33,8 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "demo": ["@php vendor/bin/testbench workbench:build --ansi", "@php vendor/bin/testbench demo:traffic --ansi"]
     },
     "config": { "sort-packages": true },
     "minimum-stability": "stable",

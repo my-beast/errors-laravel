@@ -7,8 +7,13 @@ namespace MyBeast\Errors\Laravel;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Http\Client\Events\ConnectionFailed;
+use Illuminate\Http\Client\Events\RequestSending;
+use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
@@ -24,15 +29,19 @@ use MyBeast\Errors\Laravel\Capture\Spool;
 use MyBeast\Errors\Laravel\Capture\SpoolSink;
 use MyBeast\Errors\Laravel\Console\FlushCommand;
 use MyBeast\Errors\Laravel\Console\ReleaseCommand;
+use MyBeast\Errors\Laravel\Http\MeasureRequests;
 use MyBeast\Errors\Laravel\Http\WebhookController;
+use MyBeast\Errors\Laravel\Performance\Recorder;
 use MyBeast\Errors\Laravel\Transport\Flusher;
 use MyBeast\Errors\Laravel\Transport\ServiceClient;
+use MyBeast\Errors\Laravel\Transport\TransactionFlusher;
 use Throwable;
 
 /**
  * Plugs MyBeast errors in without the host writing code: every reported exception is captured (the exception handler's
  * reportable callbacks - Laravel's dontReport list still applies), breadcrumbs are collected, the spool is sent
- * after each response and job and every minute, and the webhook route answers when a webhook secret is set.
+ * after each response and job and every minute, and the webhook route answers when a webhook secret is set. With
+ * performance on (MYBEAST_ERRORS_PERFORMANCE=true), requests and jobs are measured too.
  */
 final class ErrorsServiceProvider extends ServiceProvider
 {
@@ -63,6 +72,16 @@ final class ErrorsServiceProvider extends ServiceProvider
             $app->make(Spool::class),
             $app->make(SpoolSink::class),
             $app->make(Errors::class)->capturing()
+                ? new ServiceClient(rtrim((string) $config()['url'], '/'), (string) $config()['secret'])
+                : null,
+        ));
+
+        // Performance samples wait in a spool of their own: errors never queue behind them.
+        $performanceSpool = fn (): Spool => new Spool((string) ($config()['performance']['spool_path'] ?? storage_path('app/private/mybeast-errors-performance')));
+        $this->app->singleton(Recorder::class, fn ($app): Recorder => new Recorder($performanceSpool(), $config(), $app->basePath()));
+        $this->app->singleton(TransactionFlusher::class, fn ($app): TransactionFlusher => new TransactionFlusher(
+            $performanceSpool(),
+            $app->make(Errors::class)->measuring()
                 ? new ServiceClient(rtrim((string) $config()['url'], '/'), (string) $config()['secret'])
                 : null,
         ));
@@ -102,6 +121,10 @@ final class ErrorsServiceProvider extends ServiceProvider
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command('mybeast:errors-flush')->everyMinute()->withoutOverlapping();
         });
+
+        if ($this->app->make(Errors::class)->measuring()) {
+            $this->bootPerformance();
+        }
     }
 
     private function flushQuietly(): void
@@ -110,6 +133,83 @@ final class ErrorsServiceProvider extends ServiceProvider
             $this->app->make(Flusher::class)->flushIfPending();
         } catch (Throwable) {
             // The minutely flush will get it.
+        }
+    }
+
+    /**
+     * How long requests and jobs take: the first global middleware measures a request, the queue's events a job, and
+     * every query and outgoing call counts in whatever is being measured. Off (no listener at all) unless the host
+     * turned it on.
+     */
+    private function bootPerformance(): void
+    {
+        try {
+            $kernel = $this->app->make(HttpKernel::class);
+
+            if (method_exists($kernel, 'prependMiddleware')) {
+                $kernel->prependMiddleware(MeasureRequests::class);
+            }
+        } catch (Throwable) {
+            // No HTTP kernel (a bare console app): jobs are still measured.
+        }
+
+        // Resolved on first use, then kept: the query listener runs on every query.
+        $recorder = null;
+        $measure = function () use (&$recorder): Recorder {
+            return $recorder ??= $this->app->make(Recorder::class);
+        };
+
+        Event::listen(QueryExecuted::class, fn (QueryExecuted $query) => $measure()->query($query->sql, (float) $query->time));
+
+        Event::listen(JobProcessing::class, fn (JobProcessing $event) => $measure()->start('job', $event->job->resolveName()));
+        Event::listen(JobProcessed::class, fn () => $this->finishJob($measure(), failed: false));
+        Event::listen(JobExceptionOccurred::class, fn () => $this->finishJob($measure(), failed: true));
+
+        // Outgoing calls, by host - timed from sending to the answer (or the failure). The SDK's own calls to the
+        // service are not the host's.
+        $own = (string) parse_url((string) config('mybeast-errors.url'), PHP_URL_HOST);
+        $sending = [];
+        $host = fn (string $url): ?string => ($name = parse_url($url, PHP_URL_HOST)) && $name !== $own ? (string) $name : null;
+        $key = fn (object $event): string => $event->request->method().' '.$event->request->url();
+
+        Event::listen(RequestSending::class, function (RequestSending $event) use (&$sending, $measure, $host, $key): void {
+            if ($measure()->measuring() && $host($event->request->url()) !== null) {
+                // Calls that never got an answer must not pile up in a long-lived worker.
+                $sending = count($sending) > 100 ? [] : $sending;
+                $sending[$key($event)][] = microtime(true);
+            }
+        });
+        $answered = function (ResponseReceived|ConnectionFailed $event) use (&$sending, $measure, $host, $key): void {
+            $name = $host($event->request->url());
+            $waiting = $key($event);
+
+            if ($name === null || ($sending[$waiting] ?? []) === []) {
+                return;
+            }
+
+            $started = array_shift($sending[$waiting]);
+
+            if ($sending[$waiting] === []) {
+                unset($sending[$waiting]);
+            }
+
+            $measure()->http($name, (microtime(true) - $started) * 1000);
+        };
+        Event::listen(ResponseReceived::class, $answered);
+        Event::listen(ConnectionFailed::class, $answered);
+    }
+
+    /** A job ended. Outside a request it goes to the spool right away; inside one (the sync queue) with the request. */
+    private function finishJob(Recorder $recorder, bool $failed): void
+    {
+        try {
+            $recorder->finish('job', null, failed: $failed);
+
+            if (! $recorder->measuring()) {
+                $recorder->store();
+            }
+        } catch (Throwable) {
+            // Measuring never breaks a job.
         }
     }
 

@@ -44,6 +44,28 @@ return [
     'breadcrumbs' => 30,
     'context_lines' => 5,
 
+    /*
+     * Performance (the service's Performance tab): how long requests and queued jobs take, their database queries
+     * (shapes - never values), queries run once per row (N+1) and outgoing HTTP calls. Off until
+     * MYBEAST_ERRORS_PERFORMANCE=true, and only while errors are sent (URL and server secret). Then a share of the
+     * ordinary ones and every slow or failed one is measured into a spool of its own after the response has gone out,
+     * and sent every minute by mybeast:errors-flush - never while a request waits.
+     */
+    'performance' => [
+        'enabled' => (bool) env('MYBEAST_ERRORS_PERFORMANCE', false),
+
+        // The share of ordinary requests and jobs sent: 0.1 = one in ten.
+        'sample_rate' => (float) env('MYBEAST_ERRORS_PERFORMANCE_SAMPLE_RATE', 0.1),
+
+        // Every request or job at least this slow is sent, in milliseconds.
+        'slow_ms' => (int) env('MYBEAST_ERRORS_PERFORMANCE_SLOW_MS', 1000),
+
+        // A query of one shape run this many times in one request or job is reported as an N+1.
+        'n_plus_one' => 5,
+
+        'spool_path' => env('MYBEAST_ERRORS_PERFORMANCE_SPOOL_PATH', storage_path('app/private/mybeast-errors-performance')),
+    ],
+
     // mybeast:errors-release uploads these: the browser bundle's private source maps (Vite `sourcemap: 'hidden'`, moved out
     // of public/ after the build) and the fonts a page uses (globs; a leftover of the joint Recorder - replay now
     // belongs to sessions.my-beast.com, so this moves there).

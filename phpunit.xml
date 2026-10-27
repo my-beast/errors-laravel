@@ -9,6 +9,17 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <!-- The suite never talks to a real service and never uses the demo's database, whatever .env the workbench
+             demo left in testbench's skeleton (vendor/bin/testbench copies workbench/.env there). -->
+        <env name="MYBEAST_ERRORS_URL" value="" force="true"/>
+        <env name="MYBEAST_ERRORS_SECRET" value="" force="true"/>
+        <env name="MYBEAST_ERRORS_ENVIRONMENT" value="testing" force="true"/>
+        <env name="MYBEAST_ERRORS_RELEASE" value="" force="true"/>
+        <env name="MYBEAST_ERRORS_PERFORMANCE" value="false" force="true"/>
+        <env name="DB_CONNECTION" value="testing" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+    </php>
     <source>
         <include>
             <directory>src</directory>
