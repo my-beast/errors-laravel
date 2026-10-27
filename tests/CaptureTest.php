@@ -91,6 +91,22 @@ final class CaptureTest extends TestCase
         $this->assertStringNotContainsString('jane', (string) json_encode($event));
     }
 
+    public function test_a_recorded_request_s_error_names_the_moment_in_the_recording(): void
+    {
+        $fake = Errors::fake();
+        Route::post('leases/{lease}', fn () => throw new RuntimeException('boom'));
+        $recording = '01a17862-0000-7000-8000-000000000001';
+
+        $this->withHeaders(['X-Recording-Id' => $recording, 'X-Recording-At' => '49517'])->post('leases/77')->assertStatus(500);
+        $this->assertSame(['id' => $recording, 'at_ms' => 49517], $fake->last()['context']['recording']);
+
+        // A moment that is no number of milliseconds within a day is left out; the recording stays named.
+        foreach (['-5', '4.9', 'soon', '86400001', '999999999999'] as $odd) {
+            $this->withHeaders(['X-Recording-Id' => $recording, 'X-Recording-At' => $odd])->post('leases/77')->assertStatus(500);
+            $this->assertSame(['id' => $recording], $fake->last()['context']['recording'], $odd);
+        }
+    }
+
     public function test_off_without_config_and_no_reference(): void
     {
         report(new RuntimeException('nobody hears this'));

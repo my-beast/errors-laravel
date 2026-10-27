@@ -116,7 +116,7 @@ final class ErrorReporter
                 'breadcrumbs' => $this->breadcrumbs->all(),
                 'request' => $http,
                 'job' => $job,
-                'recording' => is_string($recording) && Str::isUuid($recording) ? ['id' => strtolower($recording)] : null,
+                'recording' => is_string($recording) && Str::isUuid($recording) ? $this->recording($recording, $request?->header('X-Recording-At')) : null,
                 'tags' => array_filter([
                     'environment' => $environment,
                     'release' => $release,
@@ -159,6 +159,23 @@ final class ErrorReporter
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * The recording the request came from (`X-Recording-Id`, @mybeast/sessions) and how far into it the request left
+     * the browser (`X-Recording-At`, ms; up to a day): the moment the issue page opens the replay at.
+     *
+     * @return array{id: string, at_ms?: int}
+     */
+    private function recording(string $id, mixed $at): array
+    {
+        $recording = ['id' => strtolower($id)];
+
+        if (is_string($at) && ctype_digit($at) && strlen($at) <= 8 && (int) $at <= 86_400_000) {
+            $recording['at_ms'] = (int) $at;
+        }
+
+        return $recording;
     }
 
     /** "App\Http\Controllers\PropertyController@store" → "PropertyController@store". */
