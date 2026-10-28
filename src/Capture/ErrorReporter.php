@@ -6,6 +6,8 @@ namespace MyBeast\Errors\Laravel\Capture;
 
 use ArrayObject;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\ErrorHandler\Error\FatalError;
@@ -23,6 +25,11 @@ use WeakMap;
  */
 final class ErrorReporter
 {
+    /** Where mybeast/logs-laravel keeps the id its lines carry, for the jobs a run queues (its Scope::CONTEXT_KEY). */
+    private const LOGS_REQUEST_ID = 'mybeast_logs_request_id';
+
+    private const REQUEST_ID = '/^[A-Za-z0-9._:-]{1,64}$/';
+
     /** @var WeakMap<Throwable, true> */
     private WeakMap $seen;
 
@@ -100,6 +107,7 @@ final class ErrorReporter
             'transaction' => $transaction,
             'request_method' => $console ? null : $request?->method(),
             'request_url' => $console ? null : Scrubber::url($request?->getRequestUri()),
+            'request_id' => $this->requestId($console ? null : $request),
             'subject' => $who?->subject,
             'account' => $who?->account,
             'internal' => $who?->internal ?? false,
@@ -176,6 +184,27 @@ final class ErrorReporter
         }
 
         return $recording;
+    }
+
+    /**
+     * The id the host's log lines of this run carry, so the issue page opens exactly them in Logs. There is no answer
+     * yet to read X-Request-Id from: mybeast/logs-laravel shares its id in Laravel's hidden Context (a request's, a
+     * queued job's - the one of the request that queued it - or a command's), read here by its key without requiring
+     * that SDK; else the request's own header, when a proxy set one. One that does not fit, none.
+     */
+    private function requestId(?Request $request): ?string
+    {
+        try {
+            $id = Context::getHidden(self::LOGS_REQUEST_ID);
+        } catch (Throwable) {
+            $id = null;
+        }
+
+        if (! is_string($id) && $request !== null) {
+            $id = $request->header((string) ($this->config['request_id_header'] ?? 'X-Request-Id'));
+        }
+
+        return is_string($id) && preg_match(self::REQUEST_ID, $id) === 1 ? $id : null;
     }
 
     /** "App\Http\Controllers\PropertyController@store" → "PropertyController@store". */

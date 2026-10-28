@@ -34,6 +34,10 @@ return [
     // The release (build) this process runs; unset = the git commit, read from .git (no shell).
     'release' => env('MYBEAST_ERRORS_RELEASE', env('APP_RELEASE')),
 
+    // A server error names its request as the app's log lines do, so its issue opens exactly them in Logs: the id
+    // mybeast/logs-laravel gives it (nothing to set), else this header of the request, when a proxy sets one.
+    'request_id_header' => env('MYBEAST_ERRORS_REQUEST_ID_HEADER', 'X-Request-Id'),
+
     // How long a client token lives, in seconds (at most 3600; the page gets a fresh one on every response).
     'token_ttl' => (int) env('MYBEAST_ERRORS_TOKEN_TTL', 1800),
 

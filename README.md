@@ -39,7 +39,10 @@ exception becomes an event (`schemas/v1/error-event.schema.json`) with:
 - the exception chain, with source lines around your own frames;
 - the last 30 breadcrumbs: SQL **without values**, log lines, the route or job;
 - the route, the action, and parameter and field **names** (never values);
-- the release, the environment, and who it happened to (ids only).
+- the release, the environment, and who it happened to (ids only);
+- the request's id as your log lines carry it, so the issue opens exactly those lines in MyBeast logs: the one
+  `mybeast/logs-laravel` gives the request (and the jobs it queues) when you have it - neither SDK requires the other -
+  else the request's `X-Request-Id` from a proxy (`MYBEAST_ERRORS_REQUEST_ID_HEADER`).
 
 E-mails, IBANs, personal ids, phone numbers and tokens are scrubbed before anything leaves, source lines included. The
 service scrubs again.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MyBeast\Errors\Laravel\Tests;
 
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use MyBeast\Errors\Laravel\Capture\Identity;
@@ -105,6 +106,32 @@ final class CaptureTest extends TestCase
             $this->withHeaders(['X-Recording-Id' => $recording, 'X-Recording-At' => $odd])->post('leases/77')->assertStatus(500);
             $this->assertSame(['id' => $recording], $fake->last()['context']['recording'], $odd);
         }
+    }
+
+    public function test_an_error_names_its_request_as_the_log_lines_do(): void
+    {
+        $fake = Errors::fake();
+        Route::post('leases/{lease}', fn () => throw new RuntimeException('boom'));
+
+        // A job or a command has no request of its own: mybeast/logs-laravel's id names it (a job's is the one of the
+        // request that queued it), read from the hidden Context without that SDK being required.
+        report(new RuntimeException('in a command'));
+        $this->assertNull($fake->last()['request_id']);
+        Context::addHidden('mybeast_logs_request_id', '01JBFX3W2KQ7S3VZ0H5M9N2P4R');
+        report(new RuntimeException('in a job'));
+        $this->assertSame('01JBFX3W2KQ7S3VZ0H5M9N2P4R', $fake->last()['request_id']);
+
+        // In a request it wins over the request's own header: the lines carry that one.
+        $this->withHeader('X-Request-Id', 'edge-7f3a9c21')->post('leases/77')->assertStatus(500);
+        $this->assertSame('01JBFX3W2KQ7S3VZ0H5M9N2P4R', $fake->last()['request_id']);
+
+        // Without it, a proxy's id; one that is no id is left off.
+        Context::forgetHidden('mybeast_logs_request_id');
+        $this->withHeader('X-Request-Id', 'edge-7f3a9c21')->post('leases/77')->assertStatus(500);
+        $this->assertSame('edge-7f3a9c21', $fake->last()['request_id']);
+        $this->assertSame([], Fixtures::violations($fake->last(), 'error-event.schema.json'));
+        $this->withHeader('X-Request-Id', 'not an id at all')->post('leases/77')->assertStatus(500);
+        $this->assertNull($fake->last()['request_id']);
     }
 
     public function test_off_without_config_and_no_reference(): void

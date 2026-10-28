@@ -54,6 +54,7 @@
         "transaction": { "type": ["string", "null"], "maxLength": 255, "description": "The route, job or command that was running." },
         "request_method": { "type": ["string", "null"], "maxLength": 10 },
         "request_url": { "type": ["string", "null"], "maxLength": 2048, "description": "Path and query keys only, never values." },
+        "request_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._:-]{1,64}$", "description": "The request's id as the host's log lines carry it (mybeast/logs-laravel's, else the request's X-Request-Id from a proxy; a queued job's is the one of the request that queued it), so the issue page opens exactly its lines in Logs. One that does not fit is left off; the event still goes in." },
         "subject": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._:-]{1,64}$", "description": "The person's id in the host. Never a name or an e-mail." },
         "account": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._:-]{1,64}$" },
         "internal": { "type": "boolean", "description": "Staff, demo or test account: never counted or alerted about." },
