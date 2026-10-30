@@ -44,14 +44,18 @@ final class StackTraceBuilder
         return $chain;
     }
 
-    /** Scrubbed; a QueryException keeps its SQL but loses the bound values. */
+    /**
+     * Scrubbed; a QueryException keeps its SQL but loses the bound values. The driver's own line keeps its numbers -
+     * "General error: 1 no such table" is the driver's code, not a value - and loses what it quotes ("Duplicate
+     * entry '…'").
+     */
     public static function message(Throwable $e): string
     {
         $message = $e->getMessage();
 
         if ($e instanceof QueryException) {
             $head = trim((string) preg_replace('/\s*\(Connection: .*$/s', '', $message));
-            $message = Scrubber::sql($head).' (SQL: '.$e->getSql().')';
+            $message = Scrubber::quoted($head).' (SQL: '.$e->getSql().')';
         }
 
         return Scrubber::text($message);

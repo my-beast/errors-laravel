@@ -61,6 +61,12 @@ final class ErrorReporter
         return $this->state['reference'] ?? null;
     }
 
+    /** A new request begins in a process that outlives it (Octane): the last one's reference is not this one's. */
+    public function forget(): void
+    {
+        unset($this->state['reference']);
+    }
+
     public function capture(Throwable $e): void
     {
         if ($this->capturing || isset($this->seen[$e])) {
@@ -94,7 +100,7 @@ final class ErrorReporter
         $recording = $console ? null : $request?->header('X-Recording-Id');
         $who = $this->identity->resolve();
         $release = Release::current($this->config['release'] ?? null, $this->app->basePath());
-        $environment = strtolower((string) ($this->config['environment'] ?? $this->app->environment()));
+        $environment = Contract::environment($this->config['environment'] ?? $this->app->environment());
 
         return [
             'event_id' => (string) Str::uuid7(),
@@ -108,8 +114,8 @@ final class ErrorReporter
             'request_method' => $console ? null : $request?->method(),
             'request_url' => $console ? null : Scrubber::url($request?->getRequestUri()),
             'request_id' => $this->requestId($console ? null : $request),
-            'subject' => $who?->subject,
-            'account' => $who?->account,
+            'subject' => Contract::id($who?->subject, 'subject'),
+            'account' => Contract::id($who?->account, 'account'),
             'internal' => $who?->internal ?? false,
             'environment' => $environment,
             'release' => $release,

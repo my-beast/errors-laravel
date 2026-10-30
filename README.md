@@ -32,6 +32,12 @@ MYBEAST_ERRORS_ENVIRONMENT=production
 While the URL or the secret is missing or malformed, nothing is captured or sent. The SDK never throws at boot and
 never breaks a page. In tests, set `MYBEAST_ERRORS_ENABLED=false` (phpunit.xml) or use `Errors::fake()`.
 
+**Is it connected?** `php artisan mybeast:errors-test` prints what is set, checks in with the service at once and says
+whether Errors heard this app (its project and environment) or why not - a refused secret in so many words. No error is
+sent, so nobody is alerted. After that the scheduler's `mybeast:errors-flush` checks in once an hour
+(`POST /v1/checkins`, `schemas/v1/checkin.schema.json`), so the project's overview can tell an app with no errors from
+one that cannot reach it, and the project hears when an environment goes quiet.
+
 ## Errors: nothing to write
 
 The SDK hooks the exception handler's `reportable()`, so Laravel's `dontReport` list still applies. Every reported
@@ -39,13 +45,17 @@ exception becomes an event (`schemas/v1/error-event.schema.json`) with:
 - the exception chain, with source lines around your own frames;
 - the last 30 breadcrumbs: SQL **without values**, log lines, the route or job;
 - the route, the action, and parameter and field **names** (never values);
-- the release, the environment, and who it happened to (ids only);
+- the release, the environment, and who it happened to (ids only - a subject or account that is not one, an e-mail
+  say, is left off with one line in the log, and the error still goes; an environment name is made one: "EU.prod" is
+  `eu-prod`);
 - the request's id as your log lines carry it, so the issue opens exactly those lines in MyBeast logs: the one
   `mybeast/logs-laravel` gives the request (and the jobs it queues) when you have it - neither SDK requires the other -
   else the request's `X-Request-Id` from a proxy (`MYBEAST_ERRORS_REQUEST_ID_HEADER`).
 
-E-mails, IBANs, personal ids, phone numbers and tokens are scrubbed before anything leaves, source lines included. The
-service scrubs again.
+E-mails, IBANs, personal ids, phone numbers and tokens are scrubbed before anything leaves, source lines included -
+and in a URL's path too: `/reset-password/9f8e…` leaves as `/reset-password/[token]`, ids stay readable. SQL
+breadcrumbs lose what raw SQL wrote into them, a database error keeps the driver's code ("General error: 1 no such
+table"), and under Octane each request starts with a clean trail. The service scrubs again.
 
 **Sending:**
 - An event goes to a spool file first, never the database (which may be what failed).
@@ -109,8 +119,14 @@ nothing is hooked at all.
     : Errors::guestConfig(),
 ```
 
-The result is `{url, key, env, release, token, expires_at}` for a signed-in page, or `{url, key, env, release}` for a
-guest's. It is `null` while the SDK is off. Hand it to `@mybeast/errors`' `init()`.
+The result is `{url, key, env, release, token, expires_at, token_url}` for a signed-in page, or `{url, key, env,
+release}` for a guest's - also when the subject is not an id (it never throws while a page renders). It is `null`
+while the SDK is off. Hand it to `@mybeast/errors`' `init()`.
+
+A token lives `token_ttl` (30 minutes). A page left open asks `GET /mybeast/errors/token` (`token_url`, in the web
+group: the person's own session decides who) for a fresh one two minutes before it runs out, so its errors stay that
+person's instead of turning into a guest's. `MYBEAST_ERRORS_TOKEN_PATH` moves it; `false` in the config turns the route
+off.
 
 ## Releases
 

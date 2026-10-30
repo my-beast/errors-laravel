@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace MyBeast\Errors\Laravel;
 
 use Closure;
+use Composer\InstalledVersions;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
 use InvalidArgumentException;
+use MyBeast\Errors\Laravel\Capture\Contract;
 use MyBeast\Errors\Laravel\Capture\ErrorReporter;
 use MyBeast\Errors\Laravel\Capture\EventSink;
 use MyBeast\Errors\Laravel\Capture\Identity;
@@ -111,6 +113,62 @@ final class Errors
         return $this->capturing() && ! $this->faked ? $this->app->make(Flusher::class)->flush() : 0;
     }
 
+    /**
+     * Tells the service this host can reach it (POST /v1/checkins): once an hour from mybeast:errors-flush, so an
+     * environment with no errors can be told from one that cannot send, and at once from mybeast:errors-test. Null
+     * while the SDK is off (no URL or server secret); the service's own words when it refuses.
+     *
+     * @return array<string, mixed>|null
+     *
+     * @throws TransportFailed
+     */
+    public function checkIn(bool $test = false, int $timeout = 10): ?array
+    {
+        $client = $this->client();
+
+        if ($client === null || $this->faked) {
+            return null;
+        }
+
+        $laravel = $this->app->version();
+
+        return $client->checkIn(array_filter([
+            'environment' => $this->environment(),
+            'sdk' => 'laravel',
+            'sdk_version' => self::version(),
+            'release' => Capture\Release::current($this->config['release'] ?? null, $this->app->basePath()),
+            'runtime' => mb_substr('php '.PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION.' · laravel '.$laravel, 0, 64),
+            'test' => $test ?: null,
+        ], fn (mixed $value): bool => $value !== null), $timeout);
+    }
+
+    /** This package's version as Composer installed it ("1.2.0", "dev-main"), or null. */
+    public static function version(): ?string
+    {
+        try {
+            return class_exists(InstalledVersions::class) && InstalledVersions::isInstalled('mybeast/errors-laravel')
+                ? mb_substr((string) InstalledVersions::getPrettyVersion('mybeast/errors-laravel'), 0, 64)
+                : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** Where the hourly check-in remembers its last one: beside the spool. */
+    public function checkInDue(): bool
+    {
+        $marker = rtrim((string) ($this->config['spool_path'] ?? ''), '/').'/.checkin';
+
+        if (is_file($marker) && filemtime($marker) > time() - 3600) {
+            return false;
+        }
+
+        @mkdir(dirname($marker), 0775, true);
+        @touch($marker);
+
+        return true;
+    }
+
     /** Sends the performance samples that wait in their spool now. @return int how many went out */
     public function flushTransactions(): int
     {
@@ -132,8 +190,10 @@ final class Errors
      * What a signed-in page's browser needs - for an Inertia shared prop or a Blade layout: where to send its errors
      * and a signed token saying whose they are (ids only). Null while the SDK is off: the page then sends nothing.
      * The token's recording claims stay off - recording is the sessions product's (mybeast/sessions-laravel).
+     * Never throws while a page renders: a subject that is not an id (an e-mail, a name) gives the guest's config,
+     * said once in the log (Capture\Contract), and an account that is not one is left off.
      *
-     * @return array{url: string, key: string, env: string, release: ?string, token: string, expires_at: int}|null
+     * @return array{url: string, key: string, env: string, release: ?string, token?: string, expires_at?: int, token_url?: ?string}|null
      */
     public function clientConfig(string|int $subject, string|int|null $account = null, bool $internal = false, bool $test = false): ?array
     {
@@ -143,10 +203,16 @@ final class Errors
             return null;
         }
 
+        $subject = Contract::id($subject, 'subject');
+
+        if ($subject === null) {
+            return $this->guestConfig();
+        }
+
         $now = Date::now()->getTimestamp();
         $claims = new ClientTokenClaims(
-            subject: (string) $subject,
-            account: $account === null ? null : (string) $account,
+            subject: $subject,
+            account: Contract::id($account, 'account'),
             environment: $this->environment(),
             record: false,
             mask: true,
@@ -164,6 +230,8 @@ final class Errors
             'release' => Capture\Release::current($this->config['release'] ?? null, $this->app->basePath()),
             'token' => $signer->sign($claims),
             'expires_at' => $claims->expiresAt,
+            // Where the page asks for a fresh one before this runs out (Http\TokenController), when the route is there.
+            'token_url' => $this->app['router']->has('mybeast.errors.token') ? $this->app['url']->route('mybeast.errors.token', [], false) : null,
         ];
     }
 
@@ -209,7 +277,7 @@ final class Errors
 
     public function environment(): string
     {
-        return strtolower((string) ($this->config['environment'] ?? 'production'));
+        return Contract::environment($this->config['environment'] ?? 'production');
     }
 
     private function on(): bool

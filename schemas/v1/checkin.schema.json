@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "mybeast-errors:schemas/v1/checkin.schema.json",
+    "title": "Check-in, v1 (server SDKs)",
+    "description": "A host saying it can reach the service: POST /v1/checkins with this body, Authorization: Bearer <server secret>. Once an hour from the host's scheduler, and on `php artisan mybeast:errors-test` - so an environment with no errors can be told from one that cannot send. Answered 202 {\"heard\": true, \"project\": <slug>, \"environment\": <name>}.",
+    "type": "object",
+    "required": ["environment", "sdk"],
+    "additionalProperties": false,
+    "properties": {
+        "environment": { "type": "string", "pattern": "^[a-z0-9_-]{1,32}$" },
+        "sdk": { "type": "string", "pattern": "^[a-z0-9_.-]{1,32}$", "description": "Which SDK: laravel, …" },
+        "sdk_version": { "type": ["string", "null"], "maxLength": 64 },
+        "release": { "type": ["string", "null"], "maxLength": 64 },
+        "runtime": { "type": ["string", "null"], "maxLength": 64, "description": "What runs it, in words: \"php 8.4 · laravel 13.38\"." },
+        "test": { "type": "boolean", "default": false, "description": "Sent by mybeast:errors-test, by a person: the overview says so." }
+    }
+}

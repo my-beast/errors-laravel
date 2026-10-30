@@ -69,7 +69,15 @@ final class Scrubber
         return (string) preg_replace('/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/', '?', $sql);
     }
 
-    /** Path plus query KEYS - "/properties?page=&sort=". Values never leave the request. */
+    /** What a message quotes becomes "?" - a database's own line ("Duplicate entry '…' for key …"), its numbers kept. */
+    public static function quoted(string $text): string
+    {
+        $text = (string) preg_replace("/'(?:[^'\\\\]|\\\\.)*'/", '?', $text);
+
+        return (string) preg_replace('/"(?:[^"\\\\]|\\\\.)*"/', '?', $text);
+    }
+
+    /** Path plus query KEYS - "/properties?page=&sort=", the path's personal parts out. Values never leave the request. */
     public static function url(?string $url): ?string
     {
         if ($url === null || $url === '') {
@@ -77,7 +85,7 @@ final class Scrubber
         }
 
         $parts = parse_url($url);
-        $path = $parts === false ? '/' : ($parts['path'] ?? '/');
+        $path = $parts === false ? '/' : self::path($parts['path'] ?? '/');
 
         if ($parts === false || ! isset($parts['query']) || $parts['query'] === '') {
             return mb_substr($path, 0, 2000);
@@ -95,5 +103,31 @@ final class Scrubber
         }
 
         return $text;
+    }
+
+    /**
+     * A path's segments, each scrubbed: an e-mail, a phone number or an identity code by the patterns, a long random
+     * one (a reset or verification token: 20+ letters and digits, not a UUID or a ULID - ids stay readable) as
+     * [token]. "/reset-password/9f8e…c1" → "/reset-password/[token]".
+     */
+    private static function path(string $path): string
+    {
+        return implode('/', array_map(static function (string $segment): string {
+            $plain = rawurldecode($segment);
+
+            if ($plain === '' || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $plain) === 1 || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $plain) === 1) {
+                return $segment;
+            }
+
+            if (preg_match('/^[A-Za-z0-9_\-.=]{20,}$/', $plain) === 1 && preg_match('/[A-Za-z]/', $plain) === 1 && preg_match('/\d/', $plain) === 1) {
+                return '[token]';
+            }
+
+            foreach (self::PATTERNS as $pattern => $replacement) {
+                $plain = (string) preg_replace($pattern, $replacement, $plain);
+            }
+
+            return $plain === rawurldecode($segment) ? $segment : $plain;
+        }, explode('/', $path)));
     }
 }

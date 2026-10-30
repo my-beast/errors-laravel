@@ -38,8 +38,10 @@ return [
     // mybeast/logs-laravel gives it (nothing to set), else this header of the request, when a proxy sets one.
     'request_id_header' => env('MYBEAST_ERRORS_REQUEST_ID_HEADER', 'X-Request-Id'),
 
-    // How long a client token lives, in seconds (at most 3600; the page gets a fresh one on every response).
+    // How long a client token lives, in seconds (at most 3600; the page gets a fresh one on every response, and a page
+    // left open asks GET {token_path} for one before it runs out - false: no such route, the host renews it itself).
     'token_ttl' => (int) env('MYBEAST_ERRORS_TOKEN_TTL', 1800),
+    'token_path' => env('MYBEAST_ERRORS_TOKEN_PATH', 'mybeast/errors/token'),
 
     // Where captured errors wait to be sent (files - never the database, which may be what failed).
     'spool_path' => env('MYBEAST_ERRORS_SPOOL_PATH', storage_path('app/private/mybeast-errors-spool')),

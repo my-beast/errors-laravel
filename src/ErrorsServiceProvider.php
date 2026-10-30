@@ -25,11 +25,14 @@ use MyBeast\Errors\Laravel\Capture\Breadcrumbs;
 use MyBeast\Errors\Laravel\Capture\ErrorReporter;
 use MyBeast\Errors\Laravel\Capture\EventSink;
 use MyBeast\Errors\Laravel\Capture\IdentityResolver;
+use MyBeast\Errors\Laravel\Capture\Scrubber;
 use MyBeast\Errors\Laravel\Capture\Spool;
 use MyBeast\Errors\Laravel\Capture\SpoolSink;
 use MyBeast\Errors\Laravel\Console\FlushCommand;
 use MyBeast\Errors\Laravel\Console\ReleaseCommand;
+use MyBeast\Errors\Laravel\Console\TestCommand;
 use MyBeast\Errors\Laravel\Http\MeasureRequests;
+use MyBeast\Errors\Laravel\Http\TokenController;
 use MyBeast\Errors\Laravel\Http\WebhookController;
 use MyBeast\Errors\Laravel\Performance\Recorder;
 use MyBeast\Errors\Laravel\Transport\Flusher;
@@ -51,7 +54,7 @@ final class ErrorsServiceProvider extends ServiceProvider
 
         // The host's scrub rules live in a static list (Scrubber runs everywhere, even where the container is gone):
         // each app starts it empty, so a test suite booting thousands of apps does not pile them up.
-        Capture\Scrubber::forget();
+        Scrubber::forget();
 
         $config = fn (): array => (array) $this->app['config']->get('mybeast-errors', []);
 
@@ -92,10 +95,11 @@ final class ErrorsServiceProvider extends ServiceProvider
         $this->publishes([__DIR__.'/../config/mybeast-errors.php' => config_path('mybeast-errors.php')], 'mybeast-errors-config');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([FlushCommand::class, ReleaseCommand::class]);
+            $this->commands([FlushCommand::class, ReleaseCommand::class, TestCommand::class]);
         }
 
         $this->bootWebhookRoute();
+        $this->bootTokenRoute();
 
         $handler = $this->app->make(ExceptionHandler::class);
 
@@ -223,6 +227,16 @@ final class ErrorsServiceProvider extends ServiceProvider
         Route::post((string) config('mybeast-errors.webhook_path', 'mybeast/errors/webhook'), WebhookController::class)->name('mybeast.errors.webhook');
     }
 
+    /** A page's token renewed before it runs out (Http\TokenController): only where tokens are signed at all. */
+    private function bootTokenRoute(): void
+    {
+        if (! is_string(config('mybeast-errors.signing_key')) || config('mybeast-errors.signing_key') === '' || config('mybeast-errors.token_path') === false) {
+            return;
+        }
+
+        Route::middleware('web')->get((string) config('mybeast-errors.token_path', 'mybeast/errors/token'), TokenController::class)->name('mybeast.errors.token');
+    }
+
     /** What happened just before an error - the last queries, log lines and steps. */
     private function bootBreadcrumbs(): void
     {
@@ -233,8 +247,15 @@ final class ErrorsServiceProvider extends ServiceProvider
         };
 
         Event::listen(QueryExecuted::class, function (QueryExecuted $query) use ($crumbs): void {
-            // SQL with placeholders only - the bindings are customers' data.
-            $crumbs()->add('query', $query->sql, ['ms' => round($query->time, 1)], scrub: false);
+            // SQL with placeholders only - the bindings are customers' data, and so is a literal written into raw SQL.
+            $crumbs()->add('query', Scrubber::sql($query->sql), ['ms' => round($query->time, 1)], scrub: false);
+        });
+
+        // Octane keeps the app between requests: each request, task and tick starts with a clean trail and no
+        // reference of the one before, or one person's queries would show in another's error.
+        Event::listen(['Laravel\Octane\Events\RequestReceived', 'Laravel\Octane\Events\TaskReceived', 'Laravel\Octane\Events\TickReceived'], function () use ($crumbs): void {
+            $crumbs()->reset();
+            $this->app->make(ErrorReporter::class)->forget();
         });
 
         Event::listen(MessageLogged::class, function (MessageLogged $log) use ($crumbs): void {

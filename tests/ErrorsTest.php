@@ -6,6 +6,9 @@ namespace MyBeast\Errors\Laravel\Tests;
 
 use Firebase\JWT\JWT;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use MyBeast\Errors\Laravel\Capture\Contract;
+use MyBeast\Errors\Laravel\Capture\Identity;
 use MyBeast\Errors\Laravel\ErrorsServiceProvider;
 use MyBeast\Errors\Laravel\Facades\Errors;
 use Orchestra\Testbench\TestCase;
@@ -50,6 +53,39 @@ final class ErrorsTest extends TestCase
         $this->assertFalse($claims['rec']);
         $this->assertNull($claims['consent_at']);
         $this->assertSame([], Fixtures::violations($claims, 'client-token.schema.json'));
+    }
+
+    public function test_a_page_never_breaks_on_an_id_that_is_not_one(): void
+    {
+        Log::spy();
+        Contract::forget();
+
+        $guest = Errors::clientConfig(subject: 'jane.doe@example.com', account: 'ws-1');
+        $this->assertArrayNotHasKey('token', $guest, 'an e-mail is no subject: the page reports as a guest');
+        $this->assertSame('staging', $guest['env']);
+        $this->assertSame('eu-prod-2', Contract::environment('EU.prod 2'));
+        $this->assertSame('production', Contract::environment(' . '));
+
+        $signed = Errors::clientConfig(subject: 42, account: 'Acme Oy');
+        [, $body] = explode('.', $signed['token']);
+        $this->assertNull(((array) JWT::jsonDecode(JWT::urlsafeB64Decode($body)))['acct'] ?? null, 'an account that is not an id is left off');
+
+        Errors::clientConfig(subject: 'jane.doe@example.com');
+        Log::shouldHaveReceived('warning')->twice(); // once for the subject, once for the account - not on every page
+    }
+
+    public function test_a_page_left_open_gets_a_fresh_token_for_whoever_is_signed_in(): void
+    {
+        $this->assertSame('/mybeast/errors/token', Errors::clientConfig(subject: 42)['token_url']);
+
+        $this->get('/mybeast/errors/token')->assertNoContent();
+
+        Errors::identifyUsing(fn (): Identity => new Identity('u-9', 'ws-1'));
+        $answer = $this->get('/mybeast/errors/token')->assertOk()->assertHeader('Cache-Control', 'no-store, private');
+        [, $body] = explode('.', $answer->json('token'));
+        $claims = (array) JWT::jsonDecode(JWT::urlsafeB64Decode($body));
+        $this->assertSame(['u-9', 'ws-1'], [$claims['sub'], $claims['acct']]);
+        $this->assertSame($claims['exp'], $answer->json('expires_at'));
     }
 
     public function test_it_is_off_without_complete_config(): void

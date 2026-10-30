@@ -50,6 +50,18 @@ final readonly class ServiceClient
             ->post($this->url.'/v1/transactions'), $timeout);
     }
 
+    /**
+     * POST /v1/checkins (schemas/v1/checkin.schema.json): this host can reach the service. It answers who it heard,
+     * {"heard": true, "project": slug, "environment": name}.
+     *
+     * @param  array<string, mixed>  $checkin
+     * @return array<string, mixed>
+     */
+    public function checkIn(array $checkin, int $timeout): array
+    {
+        return $this->call(fn (PendingRequest $http) => $http->post($this->url.'/v1/checkins', $checkin), $timeout);
+    }
+
     /** @return array<string, mixed> */
     public function deployed(string $version, string $environment): array
     {
