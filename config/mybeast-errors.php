@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /*
  * MyBeast errors: this app's errors, sent to services.my-beast.com/errors. Every key and URL comes from the project's
- * page there (Overview → Connect a host shows the .env block; Settings shows the secret lines to admins).
+ * page there (its setup guide shows the .env block: the Overview until Errors first hears the app, then "Setup
+ * guide"; Settings shows the secret lines to admins).
  *
  * Missing or malformed values switch the SDK off - it never throws at boot and never breaks a page.
  */
