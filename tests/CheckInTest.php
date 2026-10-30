@@ -38,11 +38,11 @@ final class CheckInTest extends TestCase
 
     public function test_the_test_command_checks_in_and_says_who_was_heard(): void
     {
-        Http::fake(['rec.example.test/v1/checkins' => Http::response(['heard' => true, 'project' => 'asuvaan', 'environment' => 'local'], 202)]);
+        Http::fake(['rec.example.test/v1/checkins' => Http::response(['heard' => true, 'project' => 'shop', 'environment' => 'local'], 202)]);
 
         $this->artisan('mybeast:errors-test')
             ->expectsOutputToContain('Environment       local')
-            ->expectsOutput('Errors heard asuvaan (local). Its overview says so under "What arrives".')
+            ->expectsOutput('Errors heard shop (local). Its overview says so under "What arrives".')
             ->assertSuccessful();
 
         Http::assertSent(function (Request $request): bool {

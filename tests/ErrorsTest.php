@@ -24,6 +24,7 @@ final class ErrorsTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32))); // The web group encrypts cookies.
         $app['config']->set('mybeast-errors', [
             'url' => 'https://rec.example.test/',
             'public_key' => 'pk_'.str_repeat('a', 24),

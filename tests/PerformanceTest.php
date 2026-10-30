@@ -116,7 +116,8 @@ final class PerformanceTest extends TestCase
         // Six runs of one shape: an N+1, with the line of the host's code that ran it.
         $this->assertCount(1, $transaction['n_plus_one']);
         $this->assertSame(6, $transaction['n_plus_one'][0]['count']);
-        $this->assertMatchesRegularExpression('#^…/laravel/tests/PerformanceTest\.php:\d+$#', $transaction['n_plus_one'][0]['origin']);
+        // The last three parts of the path: the SDK's folder is `laravel` here and the repository's name in CI.
+        $this->assertMatchesRegularExpression('#^…/[^/]+/tests/PerformanceTest\.php:\d+$#', $transaction['n_plus_one'][0]['origin']);
     }
 
     public function test_a_request_is_named_by_its_route_and_its_queries_keep_no_values(): void

@@ -10,8 +10,8 @@ use Closure;
  * Takes personal data out of everything an error report carries, before it leaves the app. The service runs the
  * same patterns again on arrival (service/app/Errors/Support/Scrubber.php - keep the two the same).
  *
- * A host adds its own rules with Errors::scrubUsing(fn (string $text): string => …) - Asuvaan masks Finnish
- * personal identity codes in every spelling with its own PersonalIdentityCode::maskIn.
+ * A host adds its own rules with Errors::scrubUsing(fn (string $text): string => …): a national
+ * identity code in every spelling it is written, say.
  */
 final class Scrubber
 {

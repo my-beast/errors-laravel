@@ -15,7 +15,7 @@ use Throwable;
 use WeakMap;
 
 /**
- * The capture side (ported from Asuvaan's ErrorReporter, where it ran for months): every REPORTED exception - a
+ * The capture side: every REPORTED exception - a
  * request, a queued job, a scheduled task, artisan - becomes an event (schemas/v1/error-event.schema.json) in the
  * sink. Laravel's dontReport list never reaches it.
  *

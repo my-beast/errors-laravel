@@ -1,6 +1,6 @@
 # mybeast/errors-laravel
 
-The Laravel SDK of **Errors** (services.my-beast.com/errors). It works on PHP ≥ 8.2 with Laravel 11, 12 and 13.
+The Laravel SDK of **Errors** (services.my-beast.com/errors). It works on PHP ≥ 8.2 with Laravel 12 and 13.
 
 It does six things:
 - captures every reported exception, scrubbed, and sends it to the service;
@@ -15,7 +15,7 @@ Session recording is a separate product with its own SDK: `mybeast/sessions-lara
 ## Install
 
 ```bash
-composer require mybeast/errors-laravel          # from its VCS repository until it is published
+composer require mybeast/errors-laravel
 php artisan vendor:publish --tag=mybeast-errors-config
 ```
 
@@ -209,3 +209,9 @@ $fake->assertCaptured(fn (array $event) => $event['message'] === 'boom');
 ```bash
 composer install && vendor/bin/phpunit
 ```
+
+## Releasing
+
+Add the version to `CHANGELOG.md`, then tag it: `git tag v0.2.0 && git push --tags`. Packagist reads the tag through
+its GitHub hook; there is no version in `composer.json`. The Tests workflow runs on the tag as on every push: PHP 8.2
+to 8.4 against Laravel 12 and 13 (Laravel 11 has unfixed advisories, so Composer will not install it).
