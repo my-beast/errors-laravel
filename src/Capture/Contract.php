@@ -48,7 +48,7 @@ final class Contract
 
         if (! isset(self::$said[$what])) {
             self::$said[$what] = true;
-            Log::warning("MyBeast errors: a {$what} must be an id of 1-64 letters, digits and . _ : - (an e-mail or a name is not one); its errors are sent as a guest's");
+            Log::warning("My Beast errors: a {$what} must be an id of 1-64 letters, digits and . _ : - (an e-mail or a name is not one); its errors are sent as a guest's");
         }
 
         return null;

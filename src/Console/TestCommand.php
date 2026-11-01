@@ -9,7 +9,7 @@ use MyBeast\Errors\Laravel\Errors;
 use MyBeast\Errors\Laravel\Transport\TransportFailed;
 
 /**
- * `php artisan mybeast:errors-test`: whether MyBeast Errors hears this app, said in words - what is set, a check-in sent
+ * `php artisan mybeast:errors-test`: whether My Beast Errors hears this app, said in words - what is set, a check-in sent
  * at once (marked as a test on the project's overview), and the service's answer: who it heard, or why it refused.
  * No error is sent, so nobody is alerted.
  */
@@ -17,7 +17,7 @@ final class TestCommand extends Command
 {
     protected $signature = 'mybeast:errors-test';
 
-    protected $description = 'Check that MyBeast Errors hears this app, and say why not';
+    protected $description = 'Check that My Beast Errors hears this app, and say why not';
 
     public function handle(Errors $errors): int
     {

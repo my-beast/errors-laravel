@@ -105,7 +105,7 @@ final class Recorder
         foreach ($kept as $transaction) {
             if (! $this->spool->write($transaction) && ! $this->warned) {
                 $this->warned = true;
-                Log::warning('MyBeast errors: performance samples are dropped (their spool is full or not writable).');
+                Log::warning('My Beast errors: performance samples are dropped (their spool is full or not writable).');
             }
         }
     }

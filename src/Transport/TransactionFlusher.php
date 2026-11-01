@@ -34,13 +34,13 @@ final readonly class TransactionFlusher
             try {
                 $result = $client->sendTransactions($transactions, $timeout);
             } catch (TransportFailed $e) {
-                Log::warning('MyBeast errors: performance samples wait in the spool', ['reason' => $e->getMessage()]);
+                Log::warning('My Beast errors: performance samples wait in the spool', ['reason' => $e->getMessage()]);
 
                 return false;
             }
 
             foreach ($limit->sort($result['refused'] ?? [], ($result['accepted'] ?? 0) + ($result['duplicates'] ?? 0)) as $refused) {
-                Log::warning('MyBeast errors: the service refused a performance sample', is_array($refused) ? $refused : []);
+                Log::warning('My Beast errors: the service refused a performance sample', is_array($refused) ? $refused : []);
             }
 
             return true;

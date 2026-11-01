@@ -17,12 +17,12 @@ final class FlushCommand extends Command
 {
     protected $signature = 'mybeast:errors-flush';
 
-    protected $description = 'Send the captured errors that wait in the spool to MyBeast Errors';
+    protected $description = 'Send the captured errors that wait in the spool to My Beast Errors';
 
     public function handle(Errors $errors): int
     {
         if (! $errors->capturing()) {
-            $this->line('MyBeast errors is off (no URL or server secret): nothing to send.');
+            $this->line('My Beast errors is off (no URL or server secret): nothing to send.');
 
             return self::SUCCESS;
         }
@@ -34,7 +34,7 @@ final class FlushCommand extends Command
             try {
                 $errors->checkIn();
             } catch (TransportFailed $e) {
-                Log::warning('MyBeast errors: could not check in - its errors may not be arriving either. php artisan mybeast:errors-test says why.', ['reason' => $e->getMessage()]);
+                Log::warning('My Beast errors: could not check in - its errors may not be arriving either. php artisan mybeast:errors-test says why.', ['reason' => $e->getMessage()]);
             }
         }
 

@@ -217,7 +217,7 @@ final class PerformanceTest extends TestCase
         $this->assertSame(2, Errors::flushTransactions());
         $this->assertSame([], $this->spooled());
         Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []): bool => str_contains($message, "used up this month's performance samples") && $context === ['dropped' => 2])->once();
-        Log::shouldNotHaveReceived('warning', ['MyBeast errors: the service refused a performance sample', ['id' => 'x', 'reason' => 'monthly-limit']]);
+        Log::shouldNotHaveReceived('warning', ['My Beast errors: the service refused a performance sample', ['id' => 'x', 'reason' => 'monthly-limit']]);
     }
 
     public function test_a_query_shape_keeps_names_and_drops_every_value(): void

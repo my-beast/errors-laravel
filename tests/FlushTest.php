@@ -87,13 +87,13 @@ final class FlushTest extends TestCase
         // for a reason of its own still has its warning.
         $this->assertSame(0, app(Spool::class)->count());
         Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, "used up this month's error events"))->once();
-        Log::shouldHaveReceived('warning')->with('MyBeast errors: the service refused an error event', ['event_id' => 'c', 'reason' => 'too old'])->once();
-        Log::shouldNotHaveReceived('warning', ['MyBeast errors: the service refused an error event', ['event_id' => 'a', 'reason' => 'monthly-limit']]);
+        Log::shouldHaveReceived('warning')->with('My Beast errors: the service refused an error event', ['event_id' => 'c', 'reason' => 'too old'])->once();
+        Log::shouldNotHaveReceived('warning', ['My Beast errors: the service refused an error event', ['event_id' => 'a', 'reason' => 'monthly-limit']]);
 
         // Taken again (the 1st, or a bigger package): said once, and the next month's limit would be said again.
         report(new RuntimeException('four'));
         Errors::flush();
-        Log::shouldHaveReceived('info')->with('MyBeast errors: the service takes error events again.')->once();
+        Log::shouldHaveReceived('info')->with('My Beast errors: the service takes error events again.')->once();
         $this->assertNull(app(Spool::class)->note('monthly-limit'));
     }
 

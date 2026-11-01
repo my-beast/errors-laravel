@@ -41,7 +41,7 @@ use MyBeast\Errors\Laravel\Transport\TransactionFlusher;
 use Throwable;
 
 /**
- * Plugs MyBeast errors in without the host writing code: every reported exception is captured (the exception handler's
+ * Plugs My Beast errors in without the host writing code: every reported exception is captured (the exception handler's
  * reportable callbacks - Laravel's dontReport list still applies), breadcrumbs are collected, the spool is sent
  * after each response and job and every minute, and the webhook route answers when a webhook secret is set. With
  * performance on (MYBEAST_ERRORS_PERFORMANCE=true), requests and jobs are measured too.
@@ -259,7 +259,7 @@ final class ErrorsServiceProvider extends ServiceProvider
         });
 
         Event::listen(MessageLogged::class, function (MessageLogged $log) use ($crumbs): void {
-            if (! str_starts_with($log->message, 'MyBeast errors:')) {
+            if (! str_starts_with($log->message, 'My Beast errors:')) {
                 $crumbs()->add('log', $log->message, ['level' => $log->level]);
             }
         });

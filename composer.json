@@ -1,6 +1,6 @@
 {
     "name": "mybeast/errors-laravel",
-    "description": "Laravel SDK for MyBeast Errors (services.my-beast.com/errors): your app's errors, scrubbed, grouped, alerted.",
+    "description": "Laravel SDK for My Beast Errors (services.my-beast.com/errors): your app's errors, scrubbed, grouped, alerted.",
     "type": "library",
     "license": "MIT",
     "keywords": ["mybeast", "laravel", "errors", "error-tracking", "exceptions", "monitoring"],
@@ -10,7 +10,7 @@
         "source": "https://github.com/my-beast/errors-laravel"
     },
     "authors": [
-        { "name": "MyBeast", "homepage": "https://my-beast.com" }
+        { "name": "My Beast", "homepage": "https://my-beast.com" }
     ],
     "require": {
         "php": "^8.2",

@@ -23,7 +23,7 @@ final class SpoolSink implements EventSink
             return;
         }
 
-        Log::warning('MyBeast errors: an error event was dropped (the spool is full or not writable).');
+        Log::warning('My Beast errors: an error event was dropped (the spool is full or not writable).');
     }
 
     public function pending(): bool

@@ -48,7 +48,7 @@ exception becomes an event (`schemas/v1/error-event.schema.json`) with:
 - the release, the environment, and who it happened to (ids only - a subject or account that is not one, an e-mail
   say, is left off with one line in the log, and the error still goes; an environment name is made one: "EU.prod" is
   `eu-prod`);
-- the request's id as your log lines carry it, so the issue opens exactly those lines in MyBeast logs: the one
+- the request's id as your log lines carry it, so the issue opens exactly those lines in My Beast logs: the one
   `mybeast/logs-laravel` gives the request (and the jobs it queues) when you have it - neither SDK requires the other -
   else the request's `X-Request-Id` from a proxy (`MYBEAST_ERRORS_REQUEST_ID_HEADER`).
 

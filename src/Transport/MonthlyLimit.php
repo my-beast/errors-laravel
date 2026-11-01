@@ -34,10 +34,10 @@ final readonly class MonthlyLimit
 
         if ($over > 0 && $noted !== gmdate('Y-m')) {
             $this->spool->setNote('monthly-limit', gmdate('Y-m'));
-            Log::warning("MyBeast errors: the project has used up this month's {$this->what}; the service drops the rest until the 1st (UTC).", ['dropped' => $over]);
+            Log::warning("My Beast errors: the project has used up this month's {$this->what}; the service drops the rest until the 1st (UTC).", ['dropped' => $over]);
         } elseif ($over === 0 && $taken > 0 && $noted !== null) {
             $this->spool->setNote('monthly-limit', null);
-            Log::info("MyBeast errors: the service takes {$this->what} again.");
+            Log::info("My Beast errors: the service takes {$this->what} again.");
         }
 
         return $others;

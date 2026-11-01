@@ -81,7 +81,7 @@ final class ErrorReporter
             $this->state['reference'] = self::referenceFor($event['event_id']);
             $this->sink->put($event);
         } catch (Throwable $failure) {
-            Log::warning('MyBeast errors: could not capture an exception', ['reason' => $failure->getMessage()]);
+            Log::warning('My Beast errors: could not capture an exception', ['reason' => $failure->getMessage()]);
         } finally {
             $this->capturing = false;
         }

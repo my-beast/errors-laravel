@@ -30,7 +30,7 @@ final class ReleaseCommand extends Command
         $config = (array) config('mybeast-errors');
 
         if (! $errors->capturing()) {
-            $this->error('MyBeast errors is off: set MYBEAST_ERRORS_URL and MYBEAST_ERRORS_SECRET.');
+            $this->error('My Beast errors is off: set MYBEAST_ERRORS_URL and MYBEAST_ERRORS_SECRET.');
 
             return self::FAILURE;
         }

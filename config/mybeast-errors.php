@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /*
- * MyBeast errors: this app's errors, sent to services.my-beast.com/errors. Every key and URL comes from the project's
+ * My Beast errors: this app's errors, sent to services.my-beast.com/errors. Every key and URL comes from the project's
  * page there (its setup guide shows the .env block: the Overview until Errors first hears the app, then "Setup
  * guide"; Settings shows the secret lines to admins).
  *

@@ -42,13 +42,13 @@ final readonly class Flusher
             try {
                 $result = $client->sendErrors($events, $timeout);
             } catch (TransportFailed $e) {
-                Log::warning('MyBeast errors: errors wait in the spool', ['reason' => $e->getMessage()]);
+                Log::warning('My Beast errors: errors wait in the spool', ['reason' => $e->getMessage()]);
 
                 return false;
             }
 
             foreach ($limit->sort($result['refused'] ?? [], ($result['accepted'] ?? 0) + ($result['duplicates'] ?? 0)) as $refused) {
-                Log::warning('MyBeast errors: the service refused an error event', is_array($refused) ? $refused : []);
+                Log::warning('My Beast errors: the service refused an error event', is_array($refused) ? $refused : []);
             }
 
             return true;
