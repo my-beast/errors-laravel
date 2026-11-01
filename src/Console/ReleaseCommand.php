@@ -23,7 +23,7 @@ final class ReleaseCommand extends Command
         {--sourcemaps= : Folder of *.js.map files (default: config mybeast-errors.sourcemaps_path)}
         {--files-only : Upload the files, do not say the release is live}';
 
-    protected $description = 'Upload the build\'s source maps to errors.my-beast.com and mark the release as live';
+    protected $description = 'Upload the build\'s source maps to My Beast Errors and mark the release as live';
 
     public function handle(Errors $errors): int
     {
