@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 - not released yet
+## 0.1.1 - 2026-11-01
 
 - A signed-in person's error on a page without the `auth` middleware names them. Nothing had loaded the user when
   the error was reported, so it went without anyone, and its issue said "0 customers hit". The id now comes from the
