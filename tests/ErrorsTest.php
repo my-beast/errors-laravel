@@ -6,6 +6,7 @@ namespace MyBeast\Errors\Laravel\Tests;
 
 use Firebase\JWT\JWT;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use MyBeast\Errors\Laravel\Capture\Contract;
 use MyBeast\Errors\Laravel\Capture\Identity;
@@ -80,6 +81,11 @@ final class ErrorsTest extends TestCase
         $this->assertSame('/mybeast/errors/token', Errors::clientConfig(subject: 42)['token_url']);
 
         $this->get('/mybeast/errors/token')->assertNoContent();
+
+        // The route has no auth middleware, so nothing has loaded the user: the session's id says who it is for.
+        $token = $this->withSession([Auth::guard()->getName() => 42])->get('/mybeast/errors/token')->assertOk()->json('token');
+        $this->assertSame('42', ((array) JWT::jsonDecode(JWT::urlsafeB64Decode(explode('.', $token)[1])))['sub']);
+        $this->flushSession();
 
         Errors::identifyUsing(fn (): Identity => new Identity('u-9', 'ws-1'));
         $answer = $this->get('/mybeast/errors/token')->assertOk()->assertHeader('Cache-Control', 'no-store, private');

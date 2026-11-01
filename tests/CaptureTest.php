@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MyBeast\Errors\Laravel\Tests;
 
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +28,7 @@ final class CaptureTest extends TestCase
     {
         $app['config']->set('mybeast-errors.environment', 'Staging');
         $app['config']->set('mybeast-errors.release', 'r-42');
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32))); // The web group encrypts cookies.
     }
 
     protected function tearDown(): void
@@ -104,6 +106,21 @@ final class CaptureTest extends TestCase
         $event = $fake->last();
         $this->assertSame(['u-9', 'ws-1', true], [$event['subject'], $event['account'], $event['internal']]);
         $this->assertSame('Tenant [name] missing', $event['message']);
+    }
+
+    public function test_a_public_page_s_error_names_who_is_signed_in_without_looking_them_up(): void
+    {
+        $fake = Errors::fake();
+        // No auth middleware: nothing has loaded the user when the error is reported, only the session knows them.
+        // There is no users table, so a lookup would fail and leave the person off.
+        Route::middleware('web')->get('boom', fn () => throw new RuntimeException('boom'));
+
+        $this->withSession([Auth::guard()->getName() => 2])->get('boom')->assertStatus(500);
+        $this->assertSame('2', $fake->last()['subject']);
+
+        $this->flushSession();
+        $this->get('boom')->assertStatus(500);
+        $this->assertNull($fake->last()['subject'], 'A guest is nobody.');
     }
 
     public function test_a_request_s_error_names_the_route_and_fields_never_values(): void

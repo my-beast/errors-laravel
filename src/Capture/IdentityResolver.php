@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MyBeast\Errors\Laravel\Capture;
 
 use Closure;
+use Illuminate\Auth\SessionGuard;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
 
@@ -30,15 +31,31 @@ final class IdentityResolver
                 return ($this->resolver)();
             }
 
-            if (! Auth::hasUser()) {
-                return null;
-            }
+            $id = self::signedIn();
 
-            $id = Auth::user()?->getAuthIdentifier();
-
-            return $id === null ? null : new Identity((string) $id);
+            return $id === null ? null : new Identity($id);
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * The user something already loaded, or else the id a session guard keeps in the session: on a page without the
+     * auth middleware nothing has loaded them yet, and the guard's own id() would (a query). Other guards: only a
+     * loaded user.
+     */
+    private static function signedIn(): ?string
+    {
+        $guard = Auth::guard();
+
+        if ($guard->hasUser()) {
+            $id = $guard->user()?->getAuthIdentifier();
+        } elseif ($guard instanceof SessionGuard) {
+            $id = $guard->getSession()->get($guard->getName());
+        } else {
+            return null;
+        }
+
+        return is_int($id) || (is_string($id) && $id !== '') ? (string) $id : null;
     }
 }

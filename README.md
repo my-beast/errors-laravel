@@ -45,9 +45,9 @@ exception becomes an event (`schemas/v1/error-event.schema.json`) with:
 - the exception chain, with source lines around your own frames;
 - the last 30 breadcrumbs: SQL **without values**, log lines, the route or job;
 - the route, the action, and parameter and field **names** (never values);
-- the release, the environment, and who it happened to (ids only - a subject or account that is not one, an e-mail
-  say, is left off with one line in the log, and the error still goes; an environment name is made one: "EU.prod" is
-  `eu-prod`);
+- the release, the environment, and who it happened to: the signed-in person's id, also on a page without the `auth`
+  middleware (ids only - a subject or account that is not one, an e-mail say, is left off with one line in the log, and
+  the error still goes; an environment name is made one: "EU.prod" is `eu-prod`);
 - the request's id as your log lines carry it, so the issue opens exactly those lines in My Beast logs: the one
   `mybeast/logs-laravel` gives the request (and the jobs it queues) when you have it - neither SDK requires the other -
   else the request's `X-Request-Id` from a proxy (`MYBEAST_ERRORS_REQUEST_ID_HEADER`).
@@ -69,9 +69,10 @@ table"), and under Octane each request starts with a clean trail. The service sc
 use MyBeast\Errors\Laravel\Capture\Identity;
 use MyBeast\Errors\Laravel\Facades\Errors;
 
-// AppServiceProvider::boot() - who it happened to: ids, never a name or an e-mail, never by a query.
-Errors::identifyUsing(fn (): ?Identity => auth()->hasUser()
-    ? new Identity(subject: (string) auth()->id(), account: (string) auth()->user()->team_id, internal: auth()->user()->is_staff)
+// AppServiceProvider::boot() - who it happened to, as ids: never a name or an e-mail. Without it, the signed-in
+// person's id goes, read from the session when nothing has loaded them yet.
+Errors::identifyUsing(fn (): ?Identity => auth()->check()
+    ? new Identity(subject: (string) auth()->id())
     : null);
 
 // Your own rule for personal data, after the built-in ones.
@@ -80,6 +81,11 @@ Errors::scrubUsing(fn (string $text): string => preg_replace('/\bCUST-\d+\b/', '
 // The reference a customer can quote ("mention reference 7F3A9C21") - set before anything is sent.
 $reference = Errors::lastReference();
 ```
+
+`Identity` also takes `account` (the team or workspace they work in) and `internal` (`true` for your own staff) if
+your users have them: `account: (string) auth()->user()->team_id`, `internal: (bool) auth()->user()->is_staff`.
+Unlike the default, `auth()` loads the user when nothing has yet: one query, and if that fails too (the error may be
+the database's), the event goes without them.
 
 ## Performance: off until you turn it on
 
@@ -115,7 +121,7 @@ nothing is hooked at all.
 ```php
 // An Inertia shared prop, or a Blade layout.
 'errors' => $user
-    ? Errors::clientConfig(subject: $user->id, account: $user->team_id, internal: $user->is_staff)
+    ? Errors::clientConfig(subject: $user->id) // also account: and internal: (a bool), if your users have them
     : Errors::guestConfig(),
 ```
 
