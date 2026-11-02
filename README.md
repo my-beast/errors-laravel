@@ -25,9 +25,18 @@ MYBEAST_ERRORS_PUBLIC_KEY=pk_…
 MYBEAST_ERRORS_SECRET=sk_….…
 MYBEAST_ERRORS_SIGNING_KEY=sig_….…
 MYBEAST_ERRORS_WEBHOOK_SECRET=whsec_….…
-MYBEAST_ERRORS_ENVIRONMENT=production
+MYBEAST_ERRORS_ENVIRONMENT=production   # one of the project's environments: development, staging, production
 # MYBEAST_ERRORS_RELEASE=<build>   default: APP_RELEASE, else the git commit (read from .git)
 ```
+
+**Where the values come from.** id makes the keys with the project, and Secrets keeps these lines, filled in, in each
+of the project's environments: Secrets → the environment → Download .env is the whole block, with the other products'
+lines. A key made by hand is on the project's **Settings → Keys** (`services.my-beast.com/<workspace>/<project>/settings/keys`):
+a server secret is shown once, when made; the signing key and the webhook secret again with Show.
+
+**The environment** is where this copy of the app runs, so each copy sets its own and Secrets doesn't hold it. Left
+out, it is `APP_ENV`: `local` on a developer's machine, a name the project doesn't list, so those errors show apart
+from its environments. Set `development` there.
 
 While the URL or the secret is missing or malformed, nothing is captured or sent. The SDK never throws at boot and
 never breaks a page. In tests, set `MYBEAST_ERRORS_ENABLED=false` (phpunit.xml) or use `Errors::fake()`.
@@ -119,7 +128,7 @@ nothing is hooked at all.
 ## The browser's config
 
 ```php
-// An Inertia shared prop, or a Blade layout.
+// An Inertia shared prop, or a Blade layout (below).
 'errors' => $user
     ? Errors::clientConfig(subject: $user->id) // also account: and internal: (a bool), if your users have them
     : Errors::guestConfig(),
@@ -133,6 +142,19 @@ A token lives `token_ttl` (30 minutes). A page left open asks `GET /mybeast/erro
 group: the person's own session decides who) for a fresh one two minutes before it runs out, so its errors stay that
 person's instead of turning into a guest's. `MYBEAST_ERRORS_TOKEN_PATH` moves it; `false` in the config turns the route
 off.
+
+In a Blade layout, hand it over as JSON before the page's script:
+
+```blade
+@use('MyBeast\Errors\Laravel\Facades\Errors')
+<script>window.myBeast = @json(['errors' => auth()->check() ? Errors::clientConfig(subject: auth()->id()) : Errors::guestConfig()]);</script>
+@vite('resources/js/app.js')   {{-- there: init(window.myBeast.errors) --}}
+```
+
+**List the page's origin.** A browser sends only from an origin the project lists, as the address bar shows it
+(`https://app.example.com`, and `http://localhost:8000` for your own machine): the project's Settings → Browser
+origins, in Errors or in Sessions - it is one list for the project. From any other origin the browser gets no answer
+and nothing arrives.
 
 ## Releases
 
@@ -178,7 +200,20 @@ with retries, so an erasure is never lost to a network blip. Errors still waitin
 minute's, the closing request's own) reach the service after it and are kept: delay the job a few minutes, or erase
 again then - an erasure that finds nothing answers 0.
 
-## The demo app
+## In your tests
+
+```php
+$fake = Errors::fake();
+report(new RuntimeException('boom'));
+$fake->assertCaptured(fn (array $event) => $event['message'] === 'boom');
+```
+
+## Working on this SDK
+
+For whoever changes the SDK, in its repository: the Composer download leaves `workbench/` and the tests out, and the
+demo's steps use My Beast's own local checkout.
+
+### The demo app
 
 `workbench/` is a small Laravel app with this SDK and performance on (Orchestra Workbench). It has a page with an N+1
 (`/posts/n-plus-one`), the same page eager-loaded (`/posts`), a slow page, an outgoing call, and two queued jobs, one with
@@ -200,15 +235,7 @@ Then open the project's **Performance** tab.
 `vendor/bin/testbench` leaves a copy of `workbench/.env` in testbench's skeleton (`vendor/orchestra/testbench-core/laravel/`).
 The test suite ignores it: `phpunit.xml` forces its own values.
 
-## Tests
-
-```php
-$fake = Errors::fake();
-report(new RuntimeException('boom'));
-$fake->assertCaptured(fn (array $event) => $event['message'] === 'boom');
-```
-
-## Contract
+### Contract
 
 `schemas/` is a copy of the Errors module's, `services/schemas/errors`. `SchemaCopyTest` fails when the two differ.
 
@@ -216,7 +243,7 @@ $fake->assertCaptured(fn (array $event) => $event['message'] === 'boom');
 composer install && vendor/bin/phpunit
 ```
 
-## Releasing
+### Releasing
 
 Add the version to `CHANGELOG.md`, then tag it: `git tag v0.2.0 && git push --tags`. Packagist reads the tag through
 its GitHub hook; there is no version in `composer.json`. The Tests workflow runs on the tag as on every push: PHP 8.2
